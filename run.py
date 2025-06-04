@@ -218,12 +218,17 @@ def endpoint_evaluation(ep_config):
                         pass
                 query_results.extend(round_results)
                 et = time.time()
+                print(et,st)
                 elapsed_time = et - st
                 elts.append(elapsed_time)
                 st = et
                 
                 # Calculate actual QPS
                 actual_qps = len(round_results) / elapsed_time
+                print("gather round")
+                print(f"results len {len(round_results)}")
+                print(f"elapsed_time {elapsed_time:.2f} seconds")
+
                 
                 results_analysis(
                     query_results,
@@ -280,6 +285,7 @@ def results_analysis(
             "cause",
         ],
     )
+    print(df)
     cdf = df[df.valid != "Exception"].copy()
     if len(cdf) > 0:
         console = Console()
