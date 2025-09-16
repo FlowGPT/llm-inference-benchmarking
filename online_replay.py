@@ -1029,7 +1029,7 @@ if __name__ == "__main__":
                         help="Model name to use")
     parser.add_argument("--use-chat", type=bool, default=False,
                         help="Whether to use the chat endpoint")
-    parser.add_argument("--max-tokens", type=int, default=200,
+    parser.add_argument("--max-tokens", type=int, default=180,
                         help="Maximum number of tokens to generate (default: 180)")
     parser.add_argument("--round-duration", type=int, default=60,
                         help="Duration of each round in seconds (default: 60)")
