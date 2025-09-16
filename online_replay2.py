@@ -207,7 +207,10 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
             'Content-Type': 'application/json'
         }
 
-        print(request_data['body'].get('prompt'))
+        messages = request_data['body'].get('prompt')
+        tokens_count = count_tokens(messages)
+        if tokens_count < 4300:
+            return None
 
         # 构造请求体
         if ep_config.get("use_chat", True):
@@ -217,10 +220,6 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
             # 确保messages不为空
             if not messages:
                 logger.warning(f"Empty messages for conversation {conversation_id}, skipping")
-                return None
-            
-            tokens_count = count_tokens(messages)
-            if tokens_count < 4300:
                 return None
             
             body = {
