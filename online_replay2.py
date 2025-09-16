@@ -249,7 +249,10 @@ def log_reader_smallset_thread(input_file, limit, sample_start: float = 0.0, sam
         for line in fin:
             job=process_log_line(line.strip(), sample_start, sample_end, ep_config)
             if job:
-                msglen=len(job.body['messages'])
+                if type(job.body['messages']) is list:
+                    msglen = len(job.body['messages'][0])
+                else:
+                    msglen = len(job.body['messages'])
                 datalist.append(job)
                 logger.info(f"Added job for conversation {job.conversation_id} and len {msglen} to queue")
             if len(datalist) >= limit:
