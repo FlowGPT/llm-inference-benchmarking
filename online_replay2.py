@@ -207,6 +207,8 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
             'Content-Type': 'application/json'
         }
 
+        print(request_data['body'].get('prompt'))
+
         # 构造请求体
         if ep_config.get("use_chat", True):
             messages = request_data['body'].get('prompt', [])
