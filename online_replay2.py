@@ -24,6 +24,16 @@ import hashlib
 from collections import Counter
 import uuid
 import signal
+import nltk
+from nltk.tokenize import word_tokenize
+
+# 如果是第一次使用nltk, 可能需要下载punkt包
+nltk.download('punkt')
+nltk.download('punkt_tab')
+
+def count_tokens(text):
+    tokens = word_tokenize(text)
+    return len(tokens)
 
 # 全局变量
 global_result_collector = None
@@ -55,12 +65,13 @@ job_queue = queue.PriorityQueue()
 
 class ReplayJob:
     """Class representing a job to be replayed."""
-    def __init__(self, timestamp: int, url: str, headers: Dict[str, str], body: Dict[str, Any], conversation_id: str, use_chat: bool = True):
+    def __init__(self, timestamp: int, url: str, headers: Dict[str, str], body: Dict[str, Any], conversation_id: str, use_chat: bool = True, tokens_count: int = 0):
         self.timestamp = timestamp
         self.url = url
         self.headers = headers
         self.body = body
         self.use_chat = use_chat
+        self.tokens_count = tokens_count
         
         # Round timestamp to seconds for grouping
         self.second_timestamp = timestamp // 1000000000
@@ -205,7 +216,9 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
             if not messages:
                 logger.warning(f"Empty messages for conversation {conversation_id}, skipping")
                 return None
-            if len(messages) < 4300:
+            
+            tokens_count = count_tokens(messages)
+            if tokens_count < 4300:
                 return None
             
             body = {
@@ -233,6 +246,7 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
             url=url,
             headers=headers,
             body=body,
+            tokens_count=tokens_count,
             conversation_id=conversation_id,
             use_chat=ep_config.get("use_chat", False)  # 使用配置中的use_chat参数
         )
@@ -249,12 +263,8 @@ def log_reader_smallset_thread(input_file, limit, sample_start: float = 0.0, sam
         for line in fin:
             job=process_log_line(line.strip(), sample_start, sample_end, ep_config)
             if job:
-                if type(job.body['messages']) is list:
-                    msglen = len(job.body['messages'][0])
-                else:
-                    msglen = len(job.body['messages'])
                 datalist.append(job)
-                logger.info(f"Added job for conversation {job.conversation_id} and len {msglen} to queue")
+                logger.info(f"Added job for conversation {job.conversation_id} and len {job.tokens_count} to queue")
             if len(datalist) >= limit:
                 break
     while True:
