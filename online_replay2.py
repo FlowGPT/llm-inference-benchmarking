@@ -342,7 +342,7 @@ async def send_request(client, job):
         # Add headers for tracking
         extra_headers = {
             "X-Flow-Conversation-Id": str(job.conversation_id) if job.conversation_id else "",
-            "X-Request-Id": job.request_id  # vllm读取这个字段作为request_id，添加request_id到请求头，用于全链路追踪
+            #"X-Request-Id": job.request_id  # vllm读取这个字段作为request_id，添加request_id到请求头，用于全链路追踪
         }
         
         if job.use_chat:
