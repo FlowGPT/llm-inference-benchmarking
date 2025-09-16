@@ -241,7 +241,7 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
         logger.error(f"Error processing line: {e}")
         return None
 
-def log_reader_smallset_thread(input_file, limit,sample_start: float = 0.0, sample_end: float = 1.0, ep_config: dict = None):
+def log_reader_smallset_thread(input_file, limit, sample_start: float = 0.0, sample_end: float = 1.0, ep_config: dict = None):
     datalist=[]
     with open(input_file, 'r') as fin:
         for line in fin:
