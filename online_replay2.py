@@ -205,6 +205,8 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
             if not messages:
                 logger.warning(f"Empty messages for conversation {conversation_id}, skipping")
                 return None
+            if len(messages) < 4300:
+                return None
             
             body = {
                 "model": ep_config["model"],
@@ -247,8 +249,9 @@ def log_reader_smallset_thread(input_file, limit, sample_start: float = 0.0, sam
         for line in fin:
             job=process_log_line(line.strip(), sample_start, sample_end, ep_config)
             if job:
+                msglen=len(job.body['messages'])
                 datalist.append(job)
-                logger.info(f"Added job for conversation {job.conversation_id} to queue")
+                logger.info(f"Added job for conversation {job.conversation_id} and len {msglen} to queue")
             if len(datalist) >= limit:
                 break
     while True:
