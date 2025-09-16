@@ -226,7 +226,7 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
                 "model": ep_config["model"],
                 "messages": messages,
                 "stream": True,
-                "max_tokens": ep_config.get("max_tokens", 210),
+                "max_tokens": ep_config.get("max_tokens", 200),
                 "temperature": 0
             }
             url = f"{ep_config['api_base'].rstrip('/')}/chat/completions"
@@ -236,7 +236,7 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
                 "model": ep_config["model"],
                 "messages": [request_data['body'].get('prompt', '')],
                 "stream": True,
-                "max_tokens": ep_config.get("max_tokens", 210),
+                "max_tokens": ep_config.get("max_tokens", 200),
                 "temperature": 0
             }
             url = f"{ep_config['api_base'].rstrip('/')}/completions"
@@ -372,7 +372,7 @@ async def send_request(client, job):
                 messages=[
                     {"role": "user", "content": job.body.get("messages")}
                 ],
-                max_tokens=job.body.get("max_tokens", 210),
+                max_tokens=job.body.get("max_tokens", 200),
                 temperature=0.7,
                 frequency_penalty=0.4,
                 stream=True,
@@ -383,7 +383,7 @@ async def send_request(client, job):
             response = await client.completions.create(
                 model=job.body.get("model"),
                 prompt=job.body.get("messages"),
-                max_tokens=job.body.get("max_tokens", 210),
+                max_tokens=job.body.get("max_tokens", 200),
                 temperature=0.7,
                 frequency_penalty=0.4,
                 stream=True,
@@ -1070,7 +1070,7 @@ if __name__ == "__main__":
                         help="Model name to use")
     parser.add_argument("--use-chat", type=bool, default=False,
                         help="Whether to use the chat endpoint")
-    parser.add_argument("--max-tokens", type=int, default=210,
+    parser.add_argument("--max-tokens", type=int, default=200,
                         help="Maximum number of tokens to generate (default: 180)")
     parser.add_argument("--round-duration", type=int, default=60,
                         help="Duration of each round in seconds (default: 60)")
