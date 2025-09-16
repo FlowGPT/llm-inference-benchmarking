@@ -209,7 +209,7 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
 
         messages = request_data['body'].get('prompt')
         tokens_count = count_tokens(messages)
-        if tokens_count < 3800 or tokens_count > 4100:
+        if tokens_count < 3700 or tokens_count > 4000:
             return None
 
         # 构造请求体
