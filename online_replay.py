@@ -199,13 +199,17 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
         # 构造请求体
         if ep_config.get("use_chat", True):
             messages = request_data['body'].get('prompt', [])
-            # print("messages", messages)
-            # print("---------------------------------------------------------------")
             # 确保messages不为空
             if not messages:
                 logger.warning(f"Empty messages for conversation {conversation_id}, skipping")
                 return None
-            
+
+            # prompt 可能是原始 chat-template 字符串而非消息列表，需要包装
+            if isinstance(messages, str):
+                messages = [{"role": "user", "content": messages}]
+            elif isinstance(messages, list) and messages and not isinstance(messages[0], dict):
+                messages = [{"role": "user", "content": str(m)} for m in messages]
+
             body = {
                 "model": ep_config["model"],
                 "messages": messages,
@@ -230,7 +234,7 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
             headers=headers,
             body=body,
             conversation_id=conversation_id,
-            use_chat=ep_config.get("use_chat", False)  # 使用配置中的use_chat参数
+            use_chat=ep_config.get("use_chat", True)  # 使用配置中的use_chat参数
         )
         
         return job
@@ -319,6 +323,7 @@ async def send_request(client, job):
         ttft = None
         tokens_in = 0
         tokens_out = 0
+        logger.debug(f"[{job.request_id}] send_request started")
         
         # Add headers for tracking
         extra_headers = {
@@ -347,9 +352,7 @@ async def send_request(client, job):
             
             response = await client.chat.completions.create(
                 model=job.body.get("model"),
-                messages=[
-                    {"role": "user", "content": job.body.get("messages")}
-                ],
+                messages=job.body.get("messages"),
                 max_tokens=job.body.get("max_tokens", 200),
                 temperature=0,
                 stream=True,
@@ -370,34 +373,68 @@ async def send_request(client, job):
             )
             
         words = ""
+        tok = None
+        chunk_count = 0
+        _dumped_empty_chunk = False
         async for tok in response:
+            chunk_count += 1
             if not tok.choices:
+                logger.debug(f"[{job.request_id}] chunk#{chunk_count} has no choices (likely usage chunk): usage={tok.usage}")
                 continue
+
+            chunk_text = None
             if job.use_chat:
                 delta = tok.choices[0].delta
-                if delta.content:
-                    if ttft is None:
-                        ttft = time.perf_counter() - start_time
-                    words += delta.content
+                chunk_text = delta.content \
+                    or getattr(delta, 'reasoning_content', None) \
+                    or getattr(delta, 'refusal', None) \
+                    or ""
+                if not chunk_text and not _dumped_empty_chunk:
+                    _dumped_empty_chunk = True
+                    logger.debug(f"[{job.request_id}] chunk#{chunk_count} delta has no content, "
+                                 f"raw delta fields: {vars(delta) if hasattr(delta, '__dict__') else delta}")
             else:
-                delta = tok.choices[0]
-                if delta.text:
-                    if ttft is None:
-                        ttft = time.perf_counter() - start_time
-                    words += delta.text
-                    
+                choice = tok.choices[0]
+                chunk_text = getattr(choice, 'text', None) or ""
+                if not chunk_text and not _dumped_empty_chunk:
+                    _dumped_empty_chunk = True
+                    logger.debug(f"[{job.request_id}] chunk#{chunk_count} choice has no text, "
+                                 f"raw choice fields: {vars(choice) if hasattr(choice, '__dict__') else choice}")
+
+            if chunk_text:
+                if ttft is None:
+                    ttft = time.perf_counter() - start_time
+                    logger.debug(f"[{job.request_id}] TTFT={ttft:.3f}s")
+                words += chunk_text
+
+        logger.debug(f"[{job.request_id}] stream ended, chunk_count={chunk_count}, tok={tok}")
+
+        if tok is None:
+            logger.error(f"[{job.request_id}] stream returned zero chunks (empty response)")
+            return (job.request_id, "Exception", -1, -1, -1, -1, "EmptyStream")
+
+        if tok.usage is None:
+            logger.error(f"[{job.request_id}] last chunk has no usage field, tok.choices={tok.choices}")
+            return (job.request_id, "Exception", -1, -1, -1, -1, "NoUsage")
+
         tokens_in = tok.usage.prompt_tokens
         tokens_out = tok.usage.completion_tokens
         total_time = time.perf_counter() - start_time
-        
+
+        if ttft is None:
+            hint = " (hint: this is a chat/instruct model, try --use-chat)" if not job.use_chat else ""
+            logger.warning(f"[{job.request_id}] ttft is None after stream (no content chunks?), "
+                           f"total_time={total_time:.3f}s, tokens_out={tokens_out}{hint}")
+
+        logger.debug(f"[{job.request_id}] OK total_time={total_time:.3f}s tokens_in={tokens_in} tokens_out={tokens_out}")
         return (job.request_id, "OK", ttft, total_time, tokens_in, tokens_out, "")
-        
+
     except asyncio.TimeoutError:
-        logger.error("Request timed out after 2s")
+        logger.error(f"[{job.request_id}] asyncio.TimeoutError (no explicit timeout set — SDK-level timeout?)")
         return (job.request_id, "Exception", -1, -1, -1, -1, "Timeout")
     except Exception as e:
-        logger.error(f"Request failed: {e}")
-        return (job.request_id, "Exception", -1, -1, -1, -1, str(e))
+        logger.error(f"[{job.request_id}] Exception type={type(e).__name__} msg={e}")
+        return (job.request_id, "Exception", -1, -1, -1, -1, f"{type(e).__name__}: {e}")
     
 
 class ResultCollector:
@@ -405,6 +442,7 @@ class ResultCollector:
     def __init__(self, ep_config, round_duration, max_rounds=None, detailed_logs=False):
         self.results_queue = queue.Queue()
         self.query_results = []
+        self.current_round_request_ids = set()  # 本轮发出的 request_id
         self.elts = []
         self.jobs_processed = 0
         self.round_start_time = time.perf_counter()
@@ -477,22 +515,27 @@ class ResultCollector:
             elapsed_time = current_time - self.round_start_time
             self.elts.append(elapsed_time)
             actual_qps = self.jobs_processed / elapsed_time
-            
+
+            # 只统计本轮发出的请求结果，跨轮次返回的结果留到下轮统计
+            round_results = [r for r in self.query_results if r[0] in self.current_round_request_ids]
+            pending_results = [r for r in self.query_results if r[0] not in self.current_round_request_ids]
+
             # 分析结果
             results_analysis(
-                self.query_results,
+                round_results,
                 self.elts,
                 self.ep_config["model"],
-                qps=qps,  # 使用传入的目标QPS
-                actual_qps=actual_qps,  # 同时传入实际QPS
+                qps=qps,
+                actual_qps=actual_qps,
                 concur_requests=concur_requests,
                 json_output=args.json_output,
             )
-            
-            # 重置统计
-            self.query_results = []
+
+            # 重置统计，保留跨轮次的结果和 request_id
+            self.query_results = pending_results
             self.jobs_processed = 0
             self.round_start_time = current_time
+            self.current_round_request_ids = set()
 
             # 检查是否达到最大轮数
             if self.max_rounds is not None and self.current_round >= self.max_rounds:
@@ -705,8 +748,9 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
                             
                         job = job_queue.get()
                         send_time = time.perf_counter()
+                        result_collector.current_round_request_ids.add(job.request_id)
                         task = asyncio.create_task(send_request(client, job))
-                        
+
                         # 添加回调函数
                         def callback(task, job_request_id=job.request_id, job_send_time=send_time, job=job):
                             try:
@@ -716,7 +760,7 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
                                 result_collector.total_requests += 1
                                 if status == "OK":
                                     result_collector.successful_requests += 1
-                                
+
                                 # 添加详细日志数据
                                 if detailed_logs and status == "OK":
                                     result_collector.add_detailed_result(
@@ -724,7 +768,7 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
                                     )
                             except Exception as e:
                                 logger.error(f"Error in send_request callback: {e}")
-                        
+
                         task.add_done_callback(callback)
                         
                         result_collector.increment_jobs_processed()
@@ -850,7 +894,19 @@ def results_analysis(
     success_rate = (successful_requests / total_requests * 100) if total_requests > 0 else 0
     
     cdf = df[df.valid != "Exception"].copy()
-    if len(cdf) > 0:
+    mean_tokens_in = 0
+    mean_tokens_out = 0
+    if len(cdf) == 0:
+        logger.warning(f"No successful requests in this round (all {total_requests} were exceptions), skipping metrics report")
+        exceptions_by_cause = Counter(df["cause"].tolist())
+        if exceptions_by_cause:
+            print("\nExceptions by cause:")
+            for cause, count in exceptions_by_cause.items():
+                print(f" - {count}: {cause}")
+        print("-------------------------")
+        return
+
+    if True:
         console = Console()
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("Metric")
@@ -868,7 +924,7 @@ def results_analysis(
         mean_tokens_in = int(cdf["tokens_in"].mean())
         mean_tokens_out = int(cdf["tokens_out"].mean())
 
-        s_per_output_token = (cdf["total_time"] - cdf["ttft"]) / (cdf["tokens_out"] - 1)
+        s_per_output_token = (cdf["total_time"] - cdf["ttft"]) / (cdf["tokens_out"] - 1).replace(0, float("nan"))
 
         total_input_tokens = cdf['tokens_in'].sum()
         total_output_tokens = cdf['tokens_out'].sum()
@@ -1104,7 +1160,7 @@ if __name__ == "__main__":
                         help="API base url")
     parser.add_argument("--model", type=str, default="Nitral-AI/Captain-Eris_Violet-V0.420-12B",
                         help="Model name to use")
-    parser.add_argument("--use-chat", type=bool, default=False,
+    parser.add_argument("--use-chat", action="store_true", default=False,
                         help="Whether to use the chat endpoint")
     parser.add_argument("--max-tokens", type=int, default=180,
                         help="Maximum number of tokens to generate (default: 180)")
