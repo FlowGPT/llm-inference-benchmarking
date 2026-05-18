@@ -52,6 +52,7 @@ def set_logging_level(verbose):
 
 # Job queue for storing parsed requests
 job_queue = queue.PriorityQueue()
+reader_done_event = threading.Event()
 
 class ReplayJob:
     """Class representing a job to be replayed."""
@@ -156,24 +157,40 @@ def should_process_conversation(conversation_id: str, sample_start: float, sampl
 def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1.0, ep_config: dict = None) -> Optional[ReplayJob]:
     """Process a single log line and convert it to a ReplayJob."""
     try:
-        # Extract timestamp
-        timestamp_match = re.match(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)', line)
-        if not timestamp_match:
-            logger.debug("No timestamp match found")
-            return None
-        
-        timestamp = parse_timestamp(timestamp_match.group(1))
-        if timestamp == 0:
-            return None
+        # Try raw JSONL format first: {"ts":..., "conv_id":..., "body":{...}}
+        raw_jsonl = None
+        try:
+            raw_jsonl = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            pass
 
-        # Extract and parse JSON
-        request_data = extract_json_from_log(line)
-        # print("request_data", request_data)
-        if not request_data:
-            logger.debug("No request data extracted")
-            return None
+        if raw_jsonl and isinstance(raw_jsonl, dict) and 'conv_id' in raw_jsonl and 'body' in raw_jsonl:
+            ts_val = raw_jsonl.get('ts', 0)
+            if isinstance(ts_val, (int, float)):
+                timestamp = int(ts_val)
+            else:
+                timestamp = 0
+            conversation_id = raw_jsonl.get('conv_id', '')
+            body = raw_jsonl.get('body', {})
+            if isinstance(body, str):
+                body = json.loads(body)
+            request_data = {'conversationId': conversation_id, 'body': body}
+        else:
+            # Fall back to log-line format with timestamp prefix
+            timestamp_match = re.match(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)', line)
+            if not timestamp_match:
+                logger.debug("No timestamp match found")
+                return None
 
-        # Prepare headers
+            timestamp = parse_timestamp(timestamp_match.group(1))
+            if timestamp == 0:
+                return None
+
+            request_data = extract_json_from_log(line)
+            if not request_data:
+                logger.debug("No request data extracted")
+                return None
+
         conversation_id = request_data.get('conversationId', '')
         
         # 根据采样率检查是否需要处理该conversationId
@@ -214,7 +231,8 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
                 "model": ep_config["model"],
                 "messages": messages,
                 "stream": True,
-                "max_tokens": ep_config.get("max_tokens", 200)
+                "max_tokens": ep_config.get("max_tokens", 200),
+                "temperature": ep_config.get("temperature", 0.8),
             }
             url = f"{ep_config['api_base'].rstrip('/')}/chat/completions"
         else:
@@ -223,7 +241,8 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
                 "model": ep_config["model"],
                 "messages": [request_data['body'].get('prompt', '')],
                 "stream": True,
-                "max_tokens": ep_config.get("max_tokens", 200)
+                "max_tokens": ep_config.get("max_tokens", 200),
+                "temperature": ep_config.get("temperature", 0.8),
             }
             url = f"{ep_config['api_base'].rstrip('/')}/completions"
 
@@ -278,6 +297,8 @@ def log_reader_thread(input_file: str, preload_time: int = 180, sample_start: fl
     except Exception as e:
         logger.error(f"Error in log reader thread: {e}")
         raise
+    finally:
+        reader_done_event.set()
 
 # 全局会话对象管理类
 class ClientManager:
@@ -292,7 +313,8 @@ class ClientManager:
             if self._client is None:
                 self._client = openai.AsyncOpenAI(
                     base_url=ep_config["api_base"],
-                    api_key=ep_config["api_key"]
+                    api_key=ep_config["api_key"],
+                    timeout=ep_config.get("timeout", 600.0),
                 )
             return self._client
     
@@ -332,10 +354,11 @@ async def send_request(client, job):
         }
         extra_body = {}
         # 采样参数全部放到 extra_body
+        # 注意: min_p 与 vLLM speculative decoding 不兼容 (详见 sampling_params.py:_validate_spec_decode)
+        # 在 spec/MTP 模式下会被服务端拒绝，因此本次性能测试已移除 min_p
         extra_body.update({
-            "min_p": 0.02,
             "top_p": 1,
-            "top_k": -1,
+            "top_k": 40,
             "frequency_penalty": 0,
             "presence_penalty": 0,
             "repetition_penalty": 1,
@@ -354,7 +377,7 @@ async def send_request(client, job):
                 model=job.body.get("model"),
                 messages=job.body.get("messages"),
                 max_tokens=job.body.get("max_tokens", 200),
-                temperature=0,
+                temperature=job.body.get("temperature", 0.8),
                 stream=True,
                 stream_options={"include_usage": True},
                 extra_headers=extra_headers,
@@ -365,7 +388,7 @@ async def send_request(client, job):
                 model=job.body.get("model"),
                 prompt=job.body.get("messages"),
                 max_tokens=job.body.get("max_tokens", 200),
-                temperature=0,
+                temperature=job.body.get("temperature", 0.8),
                 stream=True,
                 stream_options={"include_usage": True},
                 extra_headers=extra_headers,
@@ -439,7 +462,7 @@ async def send_request(client, job):
 
 class ResultCollector:
     """用于收集和分析请求结果的类"""
-    def __init__(self, ep_config, round_duration, max_rounds=None, detailed_logs=False):
+    def __init__(self, ep_config, round_duration, max_rounds=None, detailed_logs=False, round_drain_timeout=300):
         self.results_queue = queue.Queue()
         self.query_results = []
         self.current_round_request_ids = set()  # 本轮发出的 request_id
@@ -453,6 +476,9 @@ class ResultCollector:
         self.current_round = 0
         self.max_rounds = max_rounds
         self.detailed_logs = detailed_logs
+        self.round_drain_timeout = round_drain_timeout
+        self.round_draining = False
+        self.round_drain_start_time = None
         
         # 用于详细日志的数据结构
         if detailed_logs:
@@ -510,15 +536,42 @@ class ResultCollector:
     def check_and_report_metrics(self, qps=None, concur_requests=None):
         """检查是否需要报告指标并重置统计"""
         current_time = time.perf_counter()
-        if current_time - self.round_start_time >= self.round_duration:
+        elapsed_since_round_start = current_time - self.round_start_time
+        if elapsed_since_round_start >= self.round_duration:
+            if not self.round_draining:
+                self.round_draining = True
+                self.round_drain_start_time = current_time
+
+            completed_request_ids = {
+                r[0] for r in self.query_results
+                if isinstance(r, tuple) and len(r) > 0
+            }
+            outstanding = self.current_round_request_ids - completed_request_ids
+            drain_elapsed = current_time - (self.round_drain_start_time or current_time)
+            if outstanding and drain_elapsed < self.round_drain_timeout:
+                if int(drain_elapsed) % 10 == 0:
+                    logger.info(
+                        "Round send window elapsed; waiting for %d in-flight requests to finish (%.0fs/%ss)",
+                        len(outstanding), drain_elapsed, self.round_drain_timeout)
+                return False
+
             self.current_round += 1
-            elapsed_time = current_time - self.round_start_time
+            elapsed_time = self.round_duration
             self.elts.append(elapsed_time)
             actual_qps = self.jobs_processed / elapsed_time
 
-            # 只统计本轮发出的请求结果，跨轮次返回的结果留到下轮统计
-            round_results = [r for r in self.query_results if r[0] in self.current_round_request_ids]
-            pending_results = [r for r in self.query_results if r[0] not in self.current_round_request_ids]
+            round_results = [
+                r for r in self.query_results
+                if isinstance(r, tuple) and len(r) > 0 and r[0] in self.current_round_request_ids
+            ]
+            pending_results = [
+                r for r in self.query_results
+                if not (isinstance(r, tuple) and len(r) > 0 and r[0] in self.current_round_request_ids)
+            ]
+            if outstanding:
+                logger.warning(
+                    "Reporting round with %d unfinished requests after drain timeout %ss",
+                    len(outstanding), self.round_drain_timeout)
 
             # 分析结果
             results_analysis(
@@ -536,6 +589,8 @@ class ResultCollector:
             self.jobs_processed = 0
             self.round_start_time = current_time
             self.current_round_request_ids = set()
+            self.round_draining = False
+            self.round_drain_start_time = None
 
             # 检查是否达到最大轮数
             if self.max_rounds is not None and self.current_round >= self.max_rounds:
@@ -586,7 +641,7 @@ class ResultCollector:
 
 async def async_replay_loop(start_timestamp, start_time, ep_config: dict = None, replay_mode: str = "timestamp", 
                           target_qps: float = 1.0, round_duration: int = 60, max_rounds: int = None,
-                          detailed_logs: bool = False):
+                          detailed_logs: bool = False, round_drain_timeout: int = 300):
     """根据不同模式选择相应的重放方式"""
     try:
         client = await client_manager.get_client(ep_config)
@@ -595,11 +650,11 @@ async def async_replay_loop(start_timestamp, start_time, ep_config: dict = None,
         global global_result_collector
         
         if replay_mode == "timestamp":
-            result_collector = ResultCollector(ep_config, round_duration, max_rounds, detailed_logs)
+            result_collector = ResultCollector(ep_config, round_duration, max_rounds, detailed_logs, round_drain_timeout)
             global_result_collector = result_collector
             await replay_by_timestamp(client, result_collector, start_timestamp, start_time, round_duration, max_rounds, detailed_logs)
         elif replay_mode == "qps":
-            result_collector = ResultCollector(ep_config, round_duration, max_rounds, detailed_logs)
+            result_collector = ResultCollector(ep_config, round_duration, max_rounds, detailed_logs, round_drain_timeout)
             global_result_collector = result_collector
             await replay_by_qps(client, result_collector, target_qps, round_duration, max_rounds, detailed_logs)
         else:
@@ -729,6 +784,11 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
         while True:
             try:
                 if job_queue.empty():
+                    result_collector.collect_results()
+                    result_collector.check_and_report_metrics(qps=target_qps)
+                    if reader_done_event.is_set() and not result_collector.current_round_request_ids:
+                        logger.info("Job queue is empty and log reader is done, exiting")
+                        break
                     await asyncio.sleep(0.01)
                     continue
                 
@@ -738,7 +798,8 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
                 expected_requests = math.floor(elapsed_since_start * target_qps)
                 
                 # 如果已发送的请求少于应发送的请求，则发送请求
-                if result_collector.jobs_processed < expected_requests:
+                if (not result_collector.round_draining
+                        and result_collector.jobs_processed < expected_requests):
                     jobs_to_send = expected_requests - result_collector.jobs_processed
                     
                     # 批量发送请求以赶上目标QPS
@@ -781,6 +842,8 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
                 # 精确控制循环间隔，避免CPU空转
                 next_decision_time = result_collector.round_start_time + ((result_collector.jobs_processed + 1) / target_qps)
                 sleep_time = max(0, next_decision_time - time.perf_counter())
+                if result_collector.round_draining:
+                    sleep_time = min(sleep_time, 0.05)
                 if sleep_time > 0:
                     await asyncio.sleep(sleep_time)
                 else:
@@ -795,7 +858,7 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
             # 检查是否应该退出
             if job_queue.empty():
                 await asyncio.sleep(0.1)  # 给一个机会让更多任务进来
-                if job_queue.empty():  # 二次确认
+                if job_queue.empty() and reader_done_event.is_set():  # 二次确认，且 reader 已结束
                     # 最后一次收集结果
                     result_collector.collect_results()
                     result_collector.check_and_report_metrics(qps=target_qps)
@@ -813,14 +876,21 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
 
 def replay_thread(ep_config: dict = None, replay_mode: str = "timestamp", 
                  target_qps: float = 1.0, round_duration: int = 60, max_rounds: int = None,
-                 detailed_logs: bool = False):
+                 detailed_logs: bool = False, round_drain_timeout: int = 300):
     """Thread B: Consume jobs from the queue and send requests in batches by second."""
     try:
         logger.info("Starting replay thread")
         
-        # Get the first job to establish the start time
+        # Get the first job to establish the start time. The reader may need to
+        # scan a large file before the hash sample range produces its first job.
+        wait_start = time.perf_counter()
+        while job_queue.empty() and not reader_done_event.is_set():
+            waited = time.perf_counter() - wait_start
+            if int(waited) > 0 and int(waited) % 10 == 0:
+                logger.info(f"Waiting for log reader to enqueue first job ({waited:.0f}s elapsed)")
+            time.sleep(0.1)
         if job_queue.empty():
-            logger.error("Job queue is empty, cannot start replay")
+            logger.error("Job queue is empty and log reader is done, cannot start replay")
             return
             
         first_job = job_queue.get()
@@ -838,7 +908,7 @@ def replay_thread(ep_config: dict = None, replay_mode: str = "timestamp",
             loop.run_until_complete(async_replay_loop(
                 start_timestamp, start_time, ep_config,
                 replay_mode, target_qps, round_duration, max_rounds,
-                detailed_logs
+                detailed_logs, round_drain_timeout
             ))
         except KeyboardInterrupt:
             logger.info("Keyboard interrupt received, stopping replay")
@@ -1088,7 +1158,9 @@ def main(args, sample_start, sample_end):
             "api_key": args.api_key,
             "model": args.model,
             "use_chat": args.use_chat,
-            "max_tokens": args.max_tokens
+            "max_tokens": args.max_tokens,
+            "temperature": args.temperature,
+            "timeout": args.request_timeout,
         }
         
         # 创建全局结果收集器，用于在程序退出时保存结果
@@ -1108,6 +1180,8 @@ def main(args, sample_start, sample_end):
         if args.detailed_logs:
             signal.signal(signal.SIGINT, global_signal_handler)
         
+        reader_done_event.clear()
+
         # Start the log reader thread
         reader_thread = threading.Thread(target=log_reader_thread, args=(args.input, args.preload_time, sample_start, sample_end, ep_config))
         reader_thread.daemon = True
@@ -1120,7 +1194,8 @@ def main(args, sample_start, sample_end):
         # Start the replay thread with ep_config and replay parameters
         replay_thread_instance = threading.Thread(
             target=replay_thread, 
-            args=(ep_config, args.replay_mode, args.target_qps, args.round_duration, args.max_rounds, args.detailed_logs)
+            args=(ep_config, args.replay_mode, args.target_qps, args.round_duration,
+                  args.max_rounds, args.detailed_logs, args.round_drain_timeout)
         )
         replay_thread_instance.daemon = True
         replay_thread_instance.start()
@@ -1164,8 +1239,14 @@ if __name__ == "__main__":
                         help="Whether to use the chat endpoint")
     parser.add_argument("--max-tokens", type=int, default=180,
                         help="Maximum number of tokens to generate (default: 180)")
+    parser.add_argument("--temperature", type=float, default=0.8,
+                        help="Sampling temperature (default: 0.8)")
     parser.add_argument("--round-duration", type=int, default=60,
                         help="Duration of each round in seconds (default: 60)")
+    parser.add_argument("--round-drain-timeout", type=int, default=300,
+                        help="Seconds to wait for requests sent in a round to finish before reporting that round")
+    parser.add_argument("--request-timeout", type=float, default=600.0,
+                        help="OpenAI client request timeout in seconds")
     parser.add_argument("--max-rounds", type=int, default=None,
                         help="Maximum number of rounds to run (default: None, run until all requests are processed)")
 
