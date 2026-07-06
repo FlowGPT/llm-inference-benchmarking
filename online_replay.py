@@ -35,6 +35,90 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# vLLM extra_body sampling keys (top_p / penalties / min_p go here, not OpenAI top-level).
+SAMPLING_EXTRA_KEYS = (
+    "top_p", "top_k", "min_p",
+    "frequency_penalty", "presence_penalty", "repetition_penalty",
+)
+
+# Online production request sampling defaults (CLI unset → these; CLI set → override).
+PROD_SAMPLING_DEFAULTS = {
+    "max_tokens": 200,
+    "temperature": 0.7,
+    "top_p": 0.85,
+    "top_k": 40,
+    "min_p": 0.1,
+    "frequency_penalty": 0.4,
+    "presence_penalty": 0.1,
+    "repetition_penalty": 1.0,
+}
+
+REQUEST_SAMPLING_KEYS = ("max_tokens", "temperature") + SAMPLING_EXTRA_KEYS
+
+
+def _resolve_cli_sampling(args) -> dict[str, Any]:
+    """CLI value if set, else PROD_SAMPLING_DEFAULTS. min_p resolved after warmup."""
+    cfg: dict[str, Any] = {"prefer_log_body": args.prefer_log_body}
+    for key in REQUEST_SAMPLING_KEYS:
+        if key == "min_p":
+            continue
+        val = getattr(args, key, None)
+        cfg[key] = PROD_SAMPLING_DEFAULTS[key] if val is None else val
+    cfg["_min_p_override"] = args.min_p  # None → prod default after warmup
+    return cfg
+
+
+def _resolve_sampling_value(
+    req_body: dict,
+    ep_config: dict,
+    key: str,
+):
+    """log body (if enabled) > CLI/prod ep_config."""
+    if ep_config.get("prefer_log_body", True) and key in req_body:
+        if key == "min_p" and not ep_config.get("min_p_supported", False):
+            return None
+        return req_body[key]
+    if key == "min_p":
+        if not ep_config.get("min_p_supported", False):
+            return None
+        return ep_config.get("min_p")
+    return ep_config.get(key)
+
+
+async def probe_min_p_supported(ep_config: dict, min_p_value: float) -> bool:
+    """One-shot warmup: check whether the server accepts min_p on this config."""
+    if not ep_config.get("use_chat", True):
+        return False
+    client = openai.AsyncOpenAI(
+        base_url=ep_config["api_base"],
+        api_key=ep_config["api_key"],
+        timeout=min(30.0, ep_config.get("timeout", 600.0)),
+        max_retries=0,
+    )
+    try:
+        await client.chat.completions.create(
+            model=ep_config["model"],
+            messages=[{"role": "user", "content": "ping"}],
+            max_tokens=1,
+            temperature=ep_config.get("temperature", PROD_SAMPLING_DEFAULTS["temperature"]),
+            stream=False,
+            extra_body={
+                "min_p": min_p_value,
+                "top_p": ep_config.get("top_p", PROD_SAMPLING_DEFAULTS["top_p"]),
+                "top_k": ep_config.get("top_k", PROD_SAMPLING_DEFAULTS["top_k"]),
+            },
+        )
+        return True
+    except Exception as exc:
+        msg = str(exc).lower()
+        if any(tok in msg for tok in ("min_p", "speculative", "spec decode", "spec_decode")):
+            logger.info("min_p warmup: unsupported on this server (%s)", exc)
+            return False
+        logger.warning("min_p warmup: probe failed (%s); omitting min_p", exc)
+        return False
+    finally:
+        await client.close()
+
 # 添加对 openai 和 httpx 日志的控制
 openai_logger = logging.getLogger("openai")
 httpx_logger = logging.getLogger("httpx")
@@ -227,21 +311,37 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
             elif isinstance(messages, list) and messages and not isinstance(messages[0], dict):
                 messages = [{"role": "user", "content": str(m)} for m in messages]
 
+            req_body = request_data.get("body", {})
+            if not isinstance(req_body, dict):
+                req_body = {}
             body = {
                 "model": ep_config["model"],
                 "messages": messages,
                 "stream": True,
-                "max_tokens": ep_config.get("max_tokens", 200)
+                "max_tokens": _resolve_sampling_value(req_body, ep_config, "max_tokens"),
+                "temperature": _resolve_sampling_value(req_body, ep_config, "temperature"),
             }
+            for key in SAMPLING_EXTRA_KEYS:
+                val = _resolve_sampling_value(req_body, ep_config, key)
+                if val is not None:
+                    body[key] = val
             url = f"{ep_config['api_base'].rstrip('/')}/chat/completions"
         else:
             # 对于非chat模式，构造一个包含单个消息的messages数组
+            req_body = request_data.get("body", {})
+            if not isinstance(req_body, dict):
+                req_body = {}
             body = {
                 "model": ep_config["model"],
                 "messages": [request_data['body'].get('prompt', '')],
                 "stream": True,
-                "max_tokens": ep_config.get("max_tokens", 200)
+                "max_tokens": _resolve_sampling_value(req_body, ep_config, "max_tokens"),
+                "temperature": _resolve_sampling_value(req_body, ep_config, "temperature"),
             }
+            for key in SAMPLING_EXTRA_KEYS:
+                val = _resolve_sampling_value(req_body, ep_config, key)
+                if val is not None:
+                    body[key] = val
             url = f"{ep_config['api_base'].rstrip('/')}/completions"
 
         # 创建ReplayJob
@@ -311,7 +411,8 @@ class ClientManager:
             if self._client is None:
                 self._client = openai.AsyncOpenAI(
                     base_url=ep_config["api_base"],
-                    api_key=ep_config["api_key"]
+                    api_key=ep_config["api_key"],
+                    timeout=ep_config.get("timeout", 600.0),
                 )
             return self._client
     
@@ -349,18 +450,8 @@ async def send_request(client, job):
             "X-Flow-Conversation-Id": str(job.conversation_id) if job.conversation_id else "",
             "X-Request-Id": job.request_id  # vllm读取这个字段作为request_id，添加request_id到请求头，用于全链路追踪
         }
-        extra_body = {}
-        # 采样参数全部放到 extra_body
-        extra_body.update({
-            "min_p": 0.02,
-            "top_p": 1,
-            "top_k": 40,
-            "frequency_penalty": 0,
-            "presence_penalty": 0,
-            "repetition_penalty": 1,
-            "temperature": 0.8
-        })
-        
+        extra_body = {k: job.body[k] for k in SAMPLING_EXTRA_KEYS if k in job.body}
+
         if job.use_chat:
             if not job.body.get("messages"):
                 logger.warning("Empty messages array, skipping request")
@@ -373,7 +464,7 @@ async def send_request(client, job):
                 model=job.body.get("model"),
                 messages=job.body.get("messages"),
                 max_tokens=job.body.get("max_tokens", 200),
-                temperature=0,
+                temperature=job.body.get("temperature", 0.8),
                 stream=True,
                 stream_options={"include_usage": True},
                 extra_headers=extra_headers,
@@ -384,7 +475,7 @@ async def send_request(client, job):
                 model=job.body.get("model"),
                 prompt=job.body.get("messages"),
                 max_tokens=job.body.get("max_tokens", 200),
-                temperature=0,
+                temperature=job.body.get("temperature", 0.8),
                 stream=True,
                 stream_options={"include_usage": True},
                 extra_headers=extra_headers,
@@ -888,6 +979,16 @@ def replay_thread(ep_config: dict = None, replay_mode: str = "timestamp",
         if job_queue.empty():
             logger.error("Job queue is empty and log reader is done, cannot start replay")
             return
+
+        # QPS mode replays in production time order (file ts ascending).  Wait for
+        # the reader to finish so PriorityQueue holds the full timeline before we
+        # start draining at a fixed QPS.
+        if replay_mode == "qps":
+            while not reader_done_event.is_set():
+                time.sleep(0.05)
+            logger.info(
+                f"Log reader finished ({job_queue.qsize()} jobs); QPS replay in time order"
+            )
             
         first_job = job_queue.get()
         start_timestamp = first_job.second_timestamp  # Use second-level timestamp
@@ -1154,8 +1255,22 @@ def main(args, sample_start, sample_end):
             "api_key": args.api_key,
             "model": args.model,
             "use_chat": args.use_chat,
-            "max_tokens": args.max_tokens
+            "timeout": args.request_timeout,
         }
+        sampling = _resolve_cli_sampling(args)
+        min_p_override = sampling.pop("_min_p_override", None)
+        ep_config.update(sampling)
+        min_p_candidate = (
+            min_p_override if min_p_override is not None else PROD_SAMPLING_DEFAULTS["min_p"]
+        )
+
+        min_p_ok = asyncio.run(probe_min_p_supported(ep_config, min_p_candidate))
+        ep_config["min_p_supported"] = min_p_ok
+        if min_p_ok:
+            ep_config["min_p"] = min_p_candidate
+            logger.info("min_p warmup: supported, using min_p=%s", min_p_candidate)
+        else:
+            logger.info("min_p warmup: omitted for this run (server/config incompatible)")
         
         # 创建全局结果收集器，用于在程序退出时保存结果
         global global_result_collector
@@ -1231,12 +1346,37 @@ if __name__ == "__main__":
                         help="Model name to use")
     parser.add_argument("--use-chat", action="store_true", default=False,
                         help="Whether to use the chat endpoint")
-    parser.add_argument("--max-tokens", type=int, default=180,
-                        help="Maximum number of tokens to generate (default: 180)")
+    parser.add_argument("--max-tokens", type=int, default=None,
+                        help="Max output tokens when log body has none "
+                             f"(default prod: {PROD_SAMPLING_DEFAULTS['max_tokens']})")
+    parser.add_argument("--temperature", type=float, default=None,
+                        help="Sampling temperature when log body has none "
+                             f"(default prod: {PROD_SAMPLING_DEFAULTS['temperature']})")
+    parser.add_argument("--top-p", type=float, default=None,
+                        help=f"top_p in extra_body (default prod: {PROD_SAMPLING_DEFAULTS['top_p']})")
+    parser.add_argument("--top-k", type=int, default=None,
+                        help=f"top_k in extra_body (default prod: {PROD_SAMPLING_DEFAULTS['top_k']})")
+    parser.add_argument("--min-p", type=float, default=None,
+                        help=f"min_p in extra_body (default prod: {PROD_SAMPLING_DEFAULTS['min_p']}; "
+                             "warmup probe decides if server accepts it)")
+    parser.add_argument("--frequency-penalty", type=float, default=None,
+                        help=f"frequency_penalty (default prod: {PROD_SAMPLING_DEFAULTS['frequency_penalty']})")
+    parser.add_argument("--presence-penalty", type=float, default=None,
+                        help=f"presence_penalty (default prod: {PROD_SAMPLING_DEFAULTS['presence_penalty']})")
+    parser.add_argument("--repetition-penalty", type=float, default=None,
+                        help=f"repetition_penalty (default prod: {PROD_SAMPLING_DEFAULTS['repetition_penalty']})")
+    parser.add_argument(
+        "--prefer-log-body",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Prefer per-request sampling from log body when present (default: on)",
+    )
     parser.add_argument("--round-duration", type=int, default=60,
                         help="Duration of each round in seconds (default: 60)")
     parser.add_argument("--round-drain-timeout", type=int, default=300,
                         help="Seconds to wait for requests sent in a round to finish before reporting that round")
+    parser.add_argument("--request-timeout", type=float, default=600.0,
+                        help="OpenAI client request timeout in seconds")
     parser.add_argument("--max-rounds", type=int, default=None,
                         help="Maximum number of rounds to run (default: None, run until all requests are processed)")
 
