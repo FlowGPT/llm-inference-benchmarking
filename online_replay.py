@@ -85,6 +85,13 @@ def _resolve_sampling_value(
     return ep_config.get(key)
 
 
+def _build_extra_body(body: dict[str, Any]) -> dict[str, Any]:
+    extra_body = {key: body[key] for key in SAMPLING_EXTRA_KEYS if key in body}
+    if "enable_kv_evict" in body:
+        extra_body["enable_kv_evict"] = body["enable_kv_evict"]
+    return extra_body
+
+
 async def probe_min_p_supported(ep_config: dict, min_p_value: float) -> bool:
     """One-shot warmup: check whether the server accepts min_p on this config."""
     if not ep_config.get("use_chat", True):
@@ -325,6 +332,11 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
                 val = _resolve_sampling_value(req_body, ep_config, key)
                 if val is not None:
                     body[key] = val
+            enable_kv_evict = req_body.get("enable_kv_evict")
+            if ep_config.get("forward_kv_evict") and isinstance(
+                enable_kv_evict, bool
+            ):
+                body["enable_kv_evict"] = enable_kv_evict
             url = f"{ep_config['api_base'].rstrip('/')}/chat/completions"
         else:
             # 对于非chat模式，构造一个包含单个消息的messages数组
@@ -450,7 +462,7 @@ async def send_request(client, job):
             "X-Flow-Conversation-Id": str(job.conversation_id) if job.conversation_id else "",
             "X-Request-Id": job.request_id  # vllm读取这个字段作为request_id，添加request_id到请求头，用于全链路追踪
         }
-        extra_body = {k: job.body[k] for k in SAMPLING_EXTRA_KEYS if k in job.body}
+        extra_body = _build_extra_body(job.body)
 
         if job.use_chat:
             if not job.body.get("messages"):
@@ -1256,6 +1268,7 @@ def main(args, sample_start, sample_end):
             "model": args.model,
             "use_chat": args.use_chat,
             "timeout": args.request_timeout,
+            "forward_kv_evict": args.forward_kv_evict,
         }
         sampling = _resolve_cli_sampling(args)
         min_p_override = sampling.pop("_min_p_override", None)
@@ -1264,7 +1277,11 @@ def main(args, sample_start, sample_end):
             min_p_override if min_p_override is not None else PROD_SAMPLING_DEFAULTS["min_p"]
         )
 
-        min_p_ok = asyncio.run(probe_min_p_supported(ep_config, min_p_candidate))
+        min_p_ok = (
+            False
+            if args.disable_min_p
+            else asyncio.run(probe_min_p_supported(ep_config, min_p_candidate))
+        )
         ep_config["min_p_supported"] = min_p_ok
         if min_p_ok:
             ep_config["min_p"] = min_p_candidate
@@ -1359,6 +1376,11 @@ if __name__ == "__main__":
     parser.add_argument("--min-p", type=float, default=None,
                         help=f"min_p in extra_body (default prod: {PROD_SAMPLING_DEFAULTS['min_p']}; "
                              "warmup probe decides if server accepts it)")
+    parser.add_argument(
+        "--disable-min-p",
+        action="store_true",
+        help="Never probe or send min_p (required for MTP)",
+    )
     parser.add_argument("--frequency-penalty", type=float, default=None,
                         help=f"frequency_penalty (default prod: {PROD_SAMPLING_DEFAULTS['frequency_penalty']})")
     parser.add_argument("--presence-penalty", type=float, default=None,
@@ -1370,6 +1392,11 @@ if __name__ == "__main__":
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Prefer per-request sampling from log body when present (default: on)",
+    )
+    parser.add_argument(
+        "--forward-kv-evict",
+        action="store_true",
+        help="Forward body.enable_kv_evict to vLLM (default: disabled)",
     )
     parser.add_argument("--round-duration", type=int, default=60,
                         help="Duration of each round in seconds (default: 60)")
@@ -1407,6 +1434,8 @@ if __name__ == "__main__":
                         help="Enable detailed logging of each request with request-id, timestamps and token counts. Optionally specify a path to save the CSV file, otherwise default path will be used")
     
     args = parser.parse_args()
+    if args.forward_kv_evict and not args.use_chat:
+        parser.error("--forward-kv-evict requires --use-chat")
     
     # 确保采样率在合理范围
     sample_start, sample_end = args.sample_range
