@@ -145,6 +145,32 @@ def set_logging_level(verbose):
 job_queue = queue.PriorityQueue()
 reader_done_event = threading.Event()
 
+
+class ConversationSequencer:
+    """Serialize request completion within each non-empty conversation."""
+
+    def __init__(self):
+        self._tails: dict[str, asyncio.Future[None]] = {}
+
+    async def run(self, conversation_id: str, operation):
+        if not conversation_id:
+            return await operation()
+
+        loop = asyncio.get_running_loop()
+        previous = self._tails.get(conversation_id)
+        completed = loop.create_future()
+        self._tails[conversation_id] = completed
+        try:
+            if previous is not None:
+                await asyncio.shield(previous)
+            return await operation()
+        finally:
+            if not completed.done():
+                completed.set_result(None)
+            if self._tails.get(conversation_id) is completed:
+                del self._tails[conversation_id]
+
+
 class ReplayJob:
     """Class representing a job to be replayed."""
     def __init__(self, timestamp: int, url: str, headers: Dict[str, str], body: Dict[str, Any], conversation_id: str, use_chat: bool = True):
@@ -245,7 +271,13 @@ def should_process_conversation(conversation_id: str, sample_start: float, sampl
     # 如果哈希值在 [start, end) 区间内，就处理它
     return sample_start <= normalized_hash < sample_end
 
-def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1.0, ep_config: dict = None) -> Optional[ReplayJob]:
+def process_log_line(
+    line: str,
+    sample_start: float = 0.0,
+    sample_end: float = 1.0,
+    ep_config: dict = None,
+    preselected_route: bool = False,
+) -> Optional[ReplayJob]:
     """Process a single log line and convert it to a ReplayJob."""
     try:
         # Try raw JSONL format first: {"ts":..., "conv_id":..., "body":{...}}
@@ -284,8 +316,12 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
 
         conversation_id = request_data.get('conversationId', '')
         
-        # 根据采样率检查是否需要处理该conversationId
-        if not should_process_conversation(conversation_id, sample_start, sample_end):
+        # A canonical route has already selected complete conversations and
+        # restored source ordering. Applying the legacy MD5 sampler again would
+        # silently change its cache-locality topology.
+        if not preselected_route and not should_process_conversation(
+            conversation_id, sample_start, sample_end
+        ):
             logger.debug(f"Skipping conversation {conversation_id} due to sampling range [{sample_start}, {sample_end}) - hash: {hashlib.md5(conversation_id.encode()).hexdigest()[:8]}") # Log hash for debugging
             return None
 
@@ -372,7 +408,14 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
         logger.error(f"Error processing line: {e}")
         return None
 
-def log_reader_thread(input_file: str, preload_time: int = 180, sample_start: float = 0.0, sample_end: float = 1.0, ep_config: dict = None):
+def log_reader_thread(
+    input_file: str,
+    preload_time: int = 180,
+    sample_start: float = 0.0,
+    sample_end: float = 1.0,
+    ep_config: dict = None,
+    preselected_route: bool = False,
+):
     """Thread A: Read log file and add jobs to the queue."""
     try:
         logger.info(f"Starting log reader thread with {preload_time} seconds preload time and sample range [{sample_start*100:.1f}%, {sample_end*100:.1f}%)")
@@ -384,7 +427,10 @@ def log_reader_thread(input_file: str, preload_time: int = 180, sample_start: fl
             for line_number, line in enumerate(fin, 1):
                 try:
                     logger.debug(f"Processing line {line_number}")
-                    job = process_log_line(line.strip(), sample_start, sample_end, ep_config)
+                    job = process_log_line(
+                        line.strip(), sample_start, sample_end, ep_config,
+                        preselected_route,
+                    )
                     if job:
                         # Add job to queue
                         job_queue.put(job)
@@ -557,7 +603,25 @@ async def send_request(client, job):
     except Exception as e:
         logger.error(f"[{job.request_id}] Exception type={type(e).__name__} msg={e}")
         return (job.request_id, "Exception", -1, -1, -1, -1, f"{type(e).__name__}: {e}")
-    
+
+
+async def dispatch_request(
+    client,
+    job,
+    sequencer=None,
+    scheduled_at=None,
+):
+    async def operation():
+        wire_started_at = time.perf_counter()
+        result = await send_request(client, job)
+        if scheduled_at is None:
+            return result
+        return (*result, scheduled_at, wire_started_at, time.perf_counter())
+
+    if sequencer is None:
+        return await operation()
+    return await sequencer.run(job.conversation_id, operation)
+
 
 class ResultCollector:
     """用于收集和分析请求结果的类"""
@@ -740,22 +804,56 @@ class ResultCollector:
 
 async def async_replay_loop(start_timestamp, start_time, ep_config: dict = None, replay_mode: str = "timestamp", 
                           target_qps: float = 1.0, round_duration: int = 60, max_rounds: int = None,
-                          detailed_logs: bool = False, round_drain_timeout: int = 300):
+                          detailed_logs: bool = False, round_drain_timeout: int = 300,
+                          continuous_qps_window: bool = False):
     """根据不同模式选择相应的重放方式"""
     try:
         client = await client_manager.get_client(ep_config)
         
         # 创建结果收集器并设置为全局变量
         global global_result_collector
+        sequencer = (
+            ConversationSequencer()
+            if ep_config.get("serialize_conversations")
+            else None
+        )
         
         if replay_mode == "timestamp":
             result_collector = ResultCollector(ep_config, round_duration, max_rounds, detailed_logs, round_drain_timeout)
             global_result_collector = result_collector
-            await replay_by_timestamp(client, result_collector, start_timestamp, start_time, round_duration, max_rounds, detailed_logs)
+            await replay_by_timestamp(
+                client,
+                result_collector,
+                start_timestamp,
+                start_time,
+                round_duration,
+                max_rounds,
+                detailed_logs,
+                sequencer,
+            )
         elif replay_mode == "qps":
             result_collector = ResultCollector(ep_config, round_duration, max_rounds, detailed_logs, round_drain_timeout)
             global_result_collector = result_collector
-            await replay_by_qps(client, result_collector, target_qps, round_duration, max_rounds, detailed_logs)
+            if continuous_qps_window:
+                await replay_by_qps_continuous(
+                    client,
+                    result_collector,
+                    target_qps,
+                    round_duration,
+                    max_rounds,
+                    detailed_logs,
+                    sequencer,
+                )
+            else:
+                await replay_by_qps(
+                    client,
+                    result_collector,
+                    target_qps,
+                    round_duration,
+                    max_rounds,
+                    detailed_logs,
+                    sequencer,
+                )
         else:
             logger.error(f"Unknown replay mode: {replay_mode}")
             
@@ -763,7 +861,16 @@ async def async_replay_loop(start_timestamp, start_time, ep_config: dict = None,
         # 清理资源
         await client_manager.cleanup()
 
-async def replay_by_timestamp(client, result_collector, start_timestamp, start_time, round_duration, max_rounds=None, detailed_logs=False):
+async def replay_by_timestamp(
+    client,
+    result_collector,
+    start_timestamp,
+    start_time,
+    round_duration,
+    max_rounds=None,
+    detailed_logs=False,
+    sequencer=None,
+):
     """按原始时间戳重放请求"""
     current_second = None
     current_jobs = []
@@ -811,7 +918,9 @@ async def replay_by_timestamp(client, result_collector, start_timestamp, start_t
                     # 为每个任务创建异步任务并设置回调
                     for job in current_jobs:
                         send_time = time.perf_counter()
-                        task = asyncio.create_task(send_request(client, job))
+                        task = asyncio.create_task(
+                            dispatch_request(client, job, sequencer)
+                        )
                         
                         # 添加回调函数
                         def callback(task, job_request_id=job.request_id, job_send_time=send_time, job=job):
@@ -871,7 +980,15 @@ async def replay_by_timestamp(client, result_collector, start_timestamp, start_t
         logger.error(f"Error in timestamp replay: {e}")
         raise
 
-async def replay_by_qps(client, result_collector, target_qps, round_duration, max_rounds=None, detailed_logs=False):
+async def replay_by_qps(
+    client,
+    result_collector,
+    target_qps,
+    round_duration,
+    max_rounds=None,
+    detailed_logs=False,
+    sequencer=None,
+):
     """按指定QPS重放请求，使用令牌桶算法确保QPS精确控制"""
     time_between_requests = 1.0 / target_qps
     
@@ -909,7 +1026,9 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
                         job = job_queue.get()
                         send_time = time.perf_counter()
                         result_collector.current_round_request_ids.add(job.request_id)
-                        task = asyncio.create_task(send_request(client, job))
+                        task = asyncio.create_task(
+                            dispatch_request(client, job, sequencer)
+                        )
 
                         # 添加回调函数
                         def callback(task, job_request_id=job.request_id, job_send_time=send_time, job=job):
@@ -961,21 +1080,139 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
                     # 最后一次收集结果
                     result_collector.collect_results()
                     result_collector.check_and_report_metrics(qps=target_qps)
-                    
-                    # 保存详细日志结果
-                    if detailed_logs:
-                        result_collector.save_detailed_results()
-                        
-                    logger.info("All requests processed, exiting")
-                    break
+                    if not result_collector.current_round_request_ids:
+                        # 保存详细日志结果
+                        if detailed_logs:
+                            result_collector.save_detailed_results()
+
+                        logger.info("All requests processed, exiting")
+                        break
                     
     except Exception as e:
         logger.error(f"Error in QPS replay: {e}")
         raise
 
+
+async def replay_by_qps_continuous(
+    client,
+    result_collector,
+    target_qps,
+    round_duration,
+    max_rounds,
+    detailed_logs=False,
+    sequencer=None,
+):
+    """Send continuously across reporting windows and drain only once."""
+    if max_rounds is None:
+        raise ValueError("--continuous-qps-window requires --max-rounds")
+
+    measurement_start = time.perf_counter()
+    measurement_duration = round_duration * max_rounds
+    measurement_end = measurement_start + measurement_duration
+    scheduled = 0
+    tasks: set[asyncio.Task] = set()
+
+    def completed(task):
+        tasks.discard(task)
+        try:
+            result = task.result()
+        except Exception as exc:
+            logger.error("continuous request task failed: %s", exc)
+            return
+        result_collector.results_queue.put(result)
+        result_collector.total_requests += 1
+        if result[1] == "OK":
+            result_collector.successful_requests += 1
+
+    while time.perf_counter() < measurement_end:
+        elapsed = time.perf_counter() - measurement_start
+        expected = min(
+            math.floor(elapsed * target_qps),
+            math.floor(measurement_duration * target_qps),
+        )
+        while scheduled < expected and not job_queue.empty():
+            job = job_queue.get()
+            scheduled_at = time.perf_counter()
+            task = asyncio.create_task(
+                dispatch_request(
+                    client,
+                    job,
+                    sequencer,
+                    scheduled_at=scheduled_at,
+                )
+            )
+            tasks.add(task)
+            task.add_done_callback(completed)
+            scheduled += 1
+        next_scheduled_at = measurement_start + (scheduled + 1) / target_qps
+        await asyncio.sleep(
+            min(0.05, max(0.001, next_scheduled_at - time.perf_counter()))
+        )
+
+    logger.info(
+        "Continuous send window complete: %d requests in %.1fs; draining once",
+        scheduled,
+        measurement_duration,
+    )
+    if tasks:
+        _, pending = await asyncio.wait(
+            tasks,
+            timeout=result_collector.round_drain_timeout,
+        )
+        if pending:
+            logger.warning(
+                "%d requests unfinished after final drain timeout %ss",
+                len(pending),
+                result_collector.round_drain_timeout,
+            )
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+
+    result_collector.collect_results()
+    all_results = list(result_collector.query_results)
+    for round_index in range(max_rounds):
+        window_start = measurement_start + round_index * round_duration
+        window_end = window_start + round_duration
+        round_results = [
+            result
+            for result in all_results
+            if len(result) >= 10
+            and window_start <= result[7] < window_end
+        ]
+        wire_count = sum(
+            len(result) >= 10
+            and window_start <= result[8] < window_end
+            for result in all_results
+        )
+        completion_count = sum(
+            len(result) >= 10
+            and window_start <= result[9] < window_end
+            for result in all_results
+        )
+        scheduled_qps = len(round_results) / round_duration
+        results_analysis(
+            round_results,
+            [round_duration],
+            result_collector.ep_config["model"],
+            qps=target_qps,
+            actual_qps=scheduled_qps,
+            json_output=args.json_output,
+            timing_metrics={
+                "wire_dispatch_qps": wire_count / round_duration,
+                "completion_qps": completion_count / round_duration,
+                "measurement_round": round_index + 1,
+                "continuous_qps_window": True,
+            },
+        )
+
+    if detailed_logs:
+        result_collector.save_detailed_results()
+
 def replay_thread(ep_config: dict = None, replay_mode: str = "timestamp", 
                  target_qps: float = 1.0, round_duration: int = 60, max_rounds: int = None,
-                 detailed_logs: bool = False, round_drain_timeout: int = 300):
+                 detailed_logs: bool = False, round_drain_timeout: int = 300,
+                 continuous_qps_window: bool = False):
     """Thread B: Consume jobs from the queue and send requests in batches by second."""
     try:
         logger.info("Starting replay thread")
@@ -1017,11 +1254,12 @@ def replay_thread(ep_config: dict = None, replay_mode: str = "timestamp",
             loop.run_until_complete(async_replay_loop(
                 start_timestamp, start_time, ep_config,
                 replay_mode, target_qps, round_duration, max_rounds,
-                detailed_logs, round_drain_timeout
+                detailed_logs, round_drain_timeout, continuous_qps_window
             ))
         except KeyboardInterrupt:
             logger.info("Keyboard interrupt received, stopping replay")
         finally:
+            loop.run_until_complete(loop.shutdown_asyncgens())
             loop.close()
             
     except Exception as e:
@@ -1029,7 +1267,14 @@ def replay_thread(ep_config: dict = None, replay_mode: str = "timestamp",
         raise
 
 def results_analysis(
-    query_results, elts, model, concur_requests=None, qps=None, actual_qps=None, json_output=None
+    query_results,
+    elts,
+    model,
+    concur_requests=None,
+    qps=None,
+    actual_qps=None,
+    json_output=None,
+    timing_metrics=None,
 ):
     """分析请求结果并输出性能指标"""
     print("-------------------------")
@@ -1041,7 +1286,28 @@ def results_analysis(
             json_output = None
 
     # 根据返回结果的格式调整列名
-    if query_results and len(query_results[0]) > 6:  # 新格式包含request_id
+    if query_results and len(query_results[0]) >= 10:
+        df = pd.DataFrame(
+            query_results,
+            columns=[
+                "request_id",
+                "valid",
+                "server_ttft",
+                "server_time",
+                "tokens_in",
+                "tokens_out",
+                "cause",
+                "scheduled_at",
+                "wire_started_at",
+                "completed_at",
+            ],
+        )
+        df["sequencer_wait"] = (
+            df["wire_started_at"] - df["scheduled_at"]
+        )
+        df["ttft"] = df["sequencer_wait"] + df["server_ttft"]
+        df["total_time"] = df["completed_at"] - df["scheduled_at"]
+    elif query_results and len(query_results[0]) > 6:  # 新格式包含request_id
         df = pd.DataFrame(
             query_results,
             columns=[
@@ -1099,11 +1365,20 @@ def results_analysis(
         if json_output:
             json_record = {}
 
-        cdf["tokens_per_s"] = cdf.tokens_out / cdf.total_time
+        server_time = (
+            cdf["server_time"] if "server_time" in cdf else cdf["total_time"]
+        )
+        server_ttft = (
+            cdf["server_ttft"] if "server_ttft" in cdf else cdf["ttft"]
+        )
+        cdf["tokens_per_s"] = cdf.tokens_out / server_time
         mean_tokens_in = int(cdf["tokens_in"].mean())
         mean_tokens_out = int(cdf["tokens_out"].mean())
 
-        s_per_output_token = (cdf["total_time"] - cdf["ttft"]) / (cdf["tokens_out"] - 1).replace(0, float("nan"))
+        s_per_output_token = (
+            (server_time - server_ttft)
+            / (cdf["tokens_out"] - 1).replace(0, float("nan"))
+        )
 
         total_input_tokens = cdf['tokens_in'].sum()
         total_output_tokens = cdf['tokens_out'].sum()
@@ -1179,6 +1454,8 @@ def results_analysis(
             json_record["target_qps"] = qps
         if actual_qps is not None:
             json_record["actual_qps"] = actual_qps
+        if timing_metrics:
+            json_record.update(timing_metrics)
         json_record["success_rate"] = success_rate
         json_record["input_tokens"] = mean_tokens_in
         json_record["output_tokens"] = mean_tokens_out
@@ -1222,6 +1499,9 @@ def results_analysis(
             }
 
     show_metric("Latency", "s", cdf["total_time"])
+    if "server_time" in cdf:
+        show_metric("Server Latency", "s", cdf["server_time"])
+        show_metric("Sequencer Wait", "s", cdf["sequencer_wait"])
     show_metric("Throughput", "tokens/s", cdf["tokens_per_s"])
     show_metric("TTFT", "s", cdf["ttft"])
     show_metric("TPOT", "ms", s_per_output_token * 1000)
@@ -1269,6 +1549,7 @@ def main(args, sample_start, sample_end):
             "use_chat": args.use_chat,
             "timeout": args.request_timeout,
             "forward_kv_evict": args.forward_kv_evict,
+            "serialize_conversations": args.serialize_conversations,
         }
         sampling = _resolve_cli_sampling(args)
         min_p_override = sampling.pop("_min_p_override", None)
@@ -1309,7 +1590,17 @@ def main(args, sample_start, sample_end):
         reader_done_event.clear()
 
         # Start the log reader thread
-        reader_thread = threading.Thread(target=log_reader_thread, args=(args.input, args.preload_time, sample_start, sample_end, ep_config))
+        reader_thread = threading.Thread(
+            target=log_reader_thread,
+            args=(
+                args.input,
+                args.preload_time,
+                sample_start,
+                sample_end,
+                ep_config,
+                args.preselected_route,
+            ),
+        )
         reader_thread.daemon = True
         reader_thread.start()
         
@@ -1321,7 +1612,8 @@ def main(args, sample_start, sample_end):
         replay_thread_instance = threading.Thread(
             target=replay_thread, 
             args=(ep_config, args.replay_mode, args.target_qps, args.round_duration,
-                  args.max_rounds, args.detailed_logs, args.round_drain_timeout)
+                  args.max_rounds, args.detailed_logs, args.round_drain_timeout,
+                  args.continuous_qps_window)
         )
         replay_thread_instance.daemon = True
         replay_thread_instance.start()
@@ -1398,10 +1690,27 @@ if __name__ == "__main__":
         action="store_true",
         help="Forward body.enable_kv_evict to vLLM (default: disabled)",
     )
+    parser.add_argument(
+        "--serialize-conversations",
+        action="store_true",
+        help=(
+            "Wait for each conversation's previous request to finish while "
+            "keeping different conversations concurrent."
+        ),
+    )
     parser.add_argument("--round-duration", type=int, default=60,
                         help="Duration of each round in seconds (default: 60)")
     parser.add_argument("--round-drain-timeout", type=int, default=300,
                         help="Seconds to wait for requests sent in a round to finish before reporting that round")
+    parser.add_argument(
+        "--continuous-qps-window",
+        action="store_true",
+        help=(
+            "In QPS mode, send continuously across all reporting windows and "
+            "drain only once at the end. Reports wire dispatch QPS and includes "
+            "conversation sequencing wait in Latency."
+        ),
+    )
     parser.add_argument("--request-timeout", type=float, default=600.0,
                         help="OpenAI client request timeout in seconds")
     parser.add_argument("--max-rounds", type=int, default=None,
@@ -1413,6 +1722,11 @@ if __name__ == "__main__":
     parser.add_argument('--sample-range', type=float, nargs=2, default=[0.0, 1.0],
                         metavar=('START', 'END'),
                         help='Sample range [START, END) to control the percentage of requests to send (e.g., 0.0 0.2). Default: [0.0, 1.0]')
+    parser.add_argument(
+        '--preselected-route',
+        action='store_true',
+        help='Replay every row in a preselected canonical route; incompatible with --sample-range.',
+    )
     parser.add_argument("--target-qps", type=float, default=1.0,
                         help="Target QPS for qps mode")
     # E2E SLO：端到端延迟目标（单位：秒，float）。例如：--e2e-slo 5.0
@@ -1436,11 +1750,17 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.forward_kv_evict and not args.use_chat:
         parser.error("--forward-kv-evict requires --use-chat")
+    if args.continuous_qps_window and args.replay_mode != "qps":
+        parser.error("--continuous-qps-window requires --replay-mode qps")
+    if args.continuous_qps_window and args.max_rounds is None:
+        parser.error("--continuous-qps-window requires --max-rounds")
     
     # 确保采样率在合理范围
     sample_start, sample_end = args.sample_range
     if not (0.0 <= sample_start < sample_end <= 1.0):
         raise ValueError(f"Invalid sample range [{sample_start}, {sample_end}). Must be 0.0 <= START < END <= 1.0")
+    if args.preselected_route and args.sample_range != [0.0, 1.0]:
+        parser.error('--preselected-route cannot be combined with --sample-range')
     logger.info(f"Using sample range: [{sample_start}, {sample_end})")
     
     try:
