@@ -1,0 +1,30 @@
+{
+  "stable": {
+    "image": "nvcr.io/nvidia/tensorrt-llm/release:1.2.1",
+    "digest": "sha256:33cd085b772947bd22b7273886539331420404e5d2a4a039945241945ff927b9",
+    "version": "1.2.1",
+    "model_load": "PASS",
+    "weight_format": "NVFP4",
+    "kv_cache_format": "FP8",
+    "tokenizer_auto_load": "FAIL: TokenizersBackend is unknown to bundled Transformers 4.57.3",
+    "tokenizer_compatibility_adapter": "PASS: unchanged tokenizer.json produced identical token ids via PreTrainedTokenizerFast",
+    "fixed_request": "FAIL",
+    "http_status": 400,
+    "error": "require top_k >= 0, got top_k=-1"
+  },
+  "rc_fallback": {
+    "image": "nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc22",
+    "digest": "sha256:36d6146dfb19084f7098852991b0da67565cba1e5a9bb5980b1c1a7edae3bf1b",
+    "version": "1.3.0rc22",
+    "model_load": "PASS",
+    "tokenizer_auto_load": "PASS: bundled Transformers 5.5.4 loads TokenizersBackend",
+    "fixed_request": "FAIL",
+    "http_status": 400,
+    "error": "require top_k >= 0, got top_k=-1"
+  },
+  "decision": {
+    "status": "INCOMPATIBLE_WITH_FIXED_REQUEST",
+    "qps_search_permitted": false,
+    "reason": "Changing top_k=-1 to TensorRT-LLM's disabled sentinel top_k=0 would violate the immutable request contract and is not a server launch parameter."
+  }
+}

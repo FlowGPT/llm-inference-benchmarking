@@ -89,6 +89,9 @@ def _build_extra_body(body: dict[str, Any]) -> dict[str, Any]:
     extra_body = {key: body[key] for key in SAMPLING_EXTRA_KEYS if key in body}
     if "enable_kv_evict" in body:
         extra_body["enable_kv_evict"] = body["enable_kv_evict"]
+    static = body.get("extra_body")
+    if isinstance(static, dict):
+        extra_body.update(static)
     return extra_body
 
 
@@ -373,6 +376,9 @@ def process_log_line(
                 enable_kv_evict, bool
             ):
                 body["enable_kv_evict"] = enable_kv_evict
+            static_extra = ep_config.get("extra_body")
+            if isinstance(static_extra, dict) and static_extra:
+                body["extra_body"] = static_extra
             url = f"{ep_config['api_base'].rstrip('/')}/chat/completions"
         else:
             # 对于非chat模式，构造一个包含单个消息的messages数组
@@ -1550,6 +1556,7 @@ def main(args, sample_start, sample_end):
             "timeout": args.request_timeout,
             "forward_kv_evict": args.forward_kv_evict,
             "serialize_conversations": args.serialize_conversations,
+            "extra_body": args.extra_body_json,
         }
         sampling = _resolve_cli_sampling(args)
         min_p_override = sampling.pop("_min_p_override", None)
@@ -1691,6 +1698,13 @@ if __name__ == "__main__":
         help="Forward body.enable_kv_evict to vLLM (default: disabled)",
     )
     parser.add_argument(
+        "--extra-body-json",
+        type=json.loads,
+        default=None,
+        help="JSON object merged into every request extra_body "
+             "(e.g. '{\"chat_template_kwargs\":{\"thinking\":false},\"reasoning_effort\":\"none\"}')",
+    )
+    parser.add_argument(
         "--serialize-conversations",
         action="store_true",
         help=(
@@ -1748,6 +1762,8 @@ if __name__ == "__main__":
                         help="Enable detailed logging of each request with request-id, timestamps and token counts. Optionally specify a path to save the CSV file, otherwise default path will be used")
     
     args = parser.parse_args()
+    if args.extra_body_json is not None and not isinstance(args.extra_body_json, dict):
+        parser.error("--extra-body-json must be a JSON object")
     if args.forward_kv_evict and not args.use_chat:
         parser.error("--forward-kv-evict requires --use-chat")
     if args.continuous_qps_window and args.replay_mode != "qps":

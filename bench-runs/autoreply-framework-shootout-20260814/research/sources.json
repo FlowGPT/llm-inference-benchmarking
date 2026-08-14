@@ -1,0 +1,44 @@
+{
+  "retrieved_at": "2026-08-14",
+  "sources": [
+    {
+      "name": "NVIDIA Model Optimizer speculative decoding example",
+      "url": "https://github.com/NVIDIA/Model-Optimizer/blob/main/examples/speculative_decoding/README.md",
+      "commit": "c4129b6e03d3c564e04359e6d0c6057c9a59183f",
+      "claims": ["Mistral EAGLE3 support", "online/offline/streaming training", "draft vocabulary compression", "TensorRT-LLM and SGLang export"]
+    },
+    {
+      "name": "NVIDIA Model Optimizer speculative configuration",
+      "url": "https://github.com/NVIDIA/Model-Optimizer/blob/main/modelopt/torch/speculative/config.py",
+      "commit": "c4129b6e03d3c564e04359e6d0c6057c9a59183f",
+      "claims": ["frozen target default", "EAGLE architecture controls", "logit and hidden-state distillation controls"]
+    },
+    {
+      "name": "SpecForge repository",
+      "url": "https://github.com/sgl-project/SpecForge",
+      "commit": "22bfa425312926860867149723c4d4e817905130",
+      "claims": ["EAGLE3 training", "online/offline/FSDP support", "native SGLang deployment"]
+    },
+    {
+      "name": "SpecForge 2026 roadmap",
+      "url": "https://github.com/sgl-project/SpecForge/issues/374",
+      "claims": ["vLLM and TensorRT checkpoint formats are roadmap items", "multi-layer EAGLE3 and MTP maturity"]
+    },
+    {
+      "name": "Official EAGLE repository",
+      "url": "https://github.com/SafeAILab/EAGLE",
+      "commit": "cb7e0841fe0c206c6ed74a197ad5e2a1f13f5a2b",
+      "claims": ["reference EAGLE3 training", "custom-model porting effort", "authors recommend SpecForge for out-of-box training"]
+    },
+    {
+      "name": "TensorRT-LLM speculative decoding",
+      "url": "https://nvidia.github.io/TensorRT-LLM/1.3.0rc20/features/speculative-decoding.html",
+      "claims": ["EAGLE3 runtime configuration", "linear and dynamic-tree modes", "non-greedy rejection-sampling control"]
+    },
+    {
+      "name": "SGLang speculative decoding",
+      "url": "https://github.com/sgl-project/sglang/blob/main/docs_new/docs/advanced_features/speculative_decoding.mdx",
+      "claims": ["EAGLE3 runtime flags", "SpecForge training recommendation"]
+    }
+  ]
+}

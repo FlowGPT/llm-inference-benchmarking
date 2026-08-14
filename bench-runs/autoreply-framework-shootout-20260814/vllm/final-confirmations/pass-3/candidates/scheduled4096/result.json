@@ -1,0 +1,60 @@
+{
+  "analysis": {
+    "avg_p50_latency_s": 1.8713259007393692,
+    "notes": [
+      "auto-steady: no steady window detected within --steady-tolerance 0.30 and --steady-min-window 3; falling back to tail-6."
+    ],
+    "per_round_p50": [
+      1.721381003037095,
+      1.9141672195401043,
+      1.7176045342348516,
+      1.550736361183226,
+      2.2614201162941754,
+      1.5766668387223035,
+      1.842728695832193,
+      1.8151736953295767,
+      2.128622838528827,
+      1.5949572438839823,
+      1.5227891630493104,
+      2.3236837678123266
+    ],
+    "primary_metric": "tail",
+    "rounds_required": 12,
+    "rounds_seen": 12,
+    "slo_s": 2.0,
+    "status": "PASS",
+    "steady_avg_p50_latency_s": null,
+    "steady_window_size": 0,
+    "steady_window_start_idx": null,
+    "tail_avg_p50_latency_s": 1.8713259007393692,
+    "tail_window": 6,
+    "warmup_dominated": false,
+    "warmup_ratio_tail_over_tail3": 1.03170995895037
+  },
+  "candidate": "scheduled4096",
+  "family": "scheduled_tokens",
+  "prefix": {
+    "all_prefix_metrics_seen": [
+      "vllm:external_prefix_cache_hits_created",
+      "vllm:external_prefix_cache_hits_total",
+      "vllm:external_prefix_cache_queries_created",
+      "vllm:external_prefix_cache_queries_total",
+      "vllm:prefix_cache_hits_created",
+      "vllm:prefix_cache_hits_total",
+      "vllm:prefix_cache_queries_created",
+      "vllm:prefix_cache_queries_total"
+    ],
+    "denom_is_total": true,
+    "denom_metric": "vllm:prefix_cache_queries_total",
+    "hit_metric": "vllm:prefix_cache_hits_total",
+    "hit_rate": 0.6644755103627203,
+    "hits": 22250912.0,
+    "queries": 33486429.0,
+    "status": "OK"
+  },
+  "prefix_aligned": true,
+  "probe_base": "bench-runs/autoreply-framework-shootout-20260814/vllm/final-confirmations/pass-3/candidates/scheduled4096/probes/qps_9.4_20260814_214137",
+  "probe_returncode": 0,
+  "qps": 9.4,
+  "status": "PASS"
+}

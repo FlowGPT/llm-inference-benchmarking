@@ -1,0 +1,27 @@
+{
+  "candidates": [
+    {"name":"baseline","family":"baseline","hypothesis":"stable-image resolved reference","cli_args":[],"llm_options":{}},
+    {"name":"batch64","family":"batch_capacity","hypothesis":"lower request ceiling protects p50","cli_args":["--max_batch_size","64"],"llm_options":{}},
+    {"name":"batch128","family":"batch_capacity","hypothesis":"more n=3 requests improve packing","cli_args":["--max_batch_size","128"],"llm_options":{}},
+    {"name":"batch192","family":"batch_capacity","hypothesis":"higher scheduler capacity improves saturation","cli_args":["--max_batch_size","192"],"llm_options":{}},
+    {"name":"tokens6144","family":"token_capacity","hypothesis":"smaller token batches protect decode latency","cli_args":["--max_num_tokens","6144"],"llm_options":{}},
+    {"name":"tokens12288","family":"token_capacity","hypothesis":"larger token batches improve long-prefill packing","cli_args":["--max_num_tokens","12288"],"llm_options":{}},
+    {"name":"tokens16384","family":"token_capacity","hypothesis":"maximum useful packing exceeds 12k tokens","cli_args":["--max_num_tokens","16384"],"llm_options":{}},
+    {"name":"kv85","family":"kv_cache","hypothesis":"more graph and activation headroom avoids pressure","cli_args":["--kv_cache_free_gpu_memory_fraction","0.85"],"llm_options":{}},
+    {"name":"kv95","family":"kv_cache","hypothesis":"larger KV pool supports more inflight sequences","cli_args":["--kv_cache_free_gpu_memory_fraction","0.95"],"llm_options":{}},
+    {"name":"chunked-prefill","family":"scheduler","hypothesis":"chunked prefill protects short decode work","cli_args":["--enable_chunked_prefill"],"llm_options":{}},
+    {"name":"overlap-on","family":"scheduler","hypothesis":"overlap host scheduling with GPU execution","cli_args":[],"llm_options":{"pytorch_backend_config":{"enable_overlap_scheduler":true}}},
+    {"name":"overlap-off","family":"scheduler","hypothesis":"control for overlap scheduler contribution","cli_args":[],"llm_options":{"pytorch_backend_config":{"enable_overlap_scheduler":false}}},
+    {"name":"prefix-aware-on","family":"scheduler","hypothesis":"account for n=3 reusable prefixes during admission","cli_args":[],"llm_options":{"scheduler_config":{"enable_prefix_aware_scheduling":true}}},
+    {"name":"prefix-aware-off","family":"scheduler","hypothesis":"control for prefix-aware admission","cli_args":[],"llm_options":{"scheduler_config":{"enable_prefix_aware_scheduling":false}}},
+    {"name":"block-reuse-off","family":"kv_cache","hypothesis":"control verifies within-request reuse contribution","cli_args":[],"llm_options":{"kv_cache_config":{"enable_block_reuse":false,"dtype":"fp8"}}},
+    {"name":"partial-reuse-off","family":"kv_cache","hypothesis":"full-block-only reuse may reduce bookkeeping","cli_args":[],"llm_options":{"kv_cache_config":{"enable_partial_reuse":false,"dtype":"fp8"}}},
+    {"name":"graphs-padding","family":"cuda_graph","hypothesis":"padding expands CUDA Graph hit coverage","cli_args":[],"llm_options":{"cuda_graph_config":{"enable_padding":true}}},
+    {"name":"graphs-batches96","family":"cuda_graph","hypothesis":"capture workload-relevant batch sizes through 96","cli_args":[],"llm_options":{"cuda_graph_config":{"enable_padding":true,"batch_sizes":[1,2,4,8,16,24,32,48,64,96]}}},
+    {"name":"graphs-batches192","family":"cuda_graph","hypothesis":"capture larger n=3 sequence batches","cli_args":[],"llm_options":{"cuda_graph_config":{"enable_padding":true,"batch_sizes":[1,2,4,8,16,32,48,64,96,128,160,192]}}},
+    {"name":"postprocess1","family":"frontend","hypothesis":"one postprocess worker removes detokenization stalls","cli_args":["--num_postprocess_workers","1"],"llm_options":{}},
+    {"name":"postprocess2","family":"frontend","hypothesis":"two postprocess workers feed three-choice responses","cli_args":["--num_postprocess_workers","2"],"llm_options":{}},
+    {"name":"iter-stats-off","family":"observability","hypothesis":"disable iteration statistics in performance runs","cli_args":[],"llm_options":{"pytorch_backend_config":{"enable_iter_perf_stats":false}}},
+    {"name":"iter-stats-10","family":"observability","hypothesis":"lower metric collection cadence reduces host overhead","cli_args":[],"llm_options":{"kv_cache_config":{"iteration_stats_interval":10,"dtype":"fp8"}}}
+  ]
+}

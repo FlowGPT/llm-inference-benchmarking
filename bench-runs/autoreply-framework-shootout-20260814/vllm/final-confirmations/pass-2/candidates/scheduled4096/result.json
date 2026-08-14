@@ -1,0 +1,60 @@
+{
+  "analysis": {
+    "avg_p50_latency_s": 1.878944464920399,
+    "notes": [
+      "auto-steady: no steady window detected within --steady-tolerance 0.30 and --steady-min-window 3; falling back to tail-6."
+    ],
+    "per_round_p50": [
+      1.7788317776285112,
+      1.945556357037276,
+      1.691283862106502,
+      1.54970038915053,
+      2.2229669091757387,
+      1.5297800991684198,
+      1.7962638633325696,
+      1.8131663731765002,
+      2.1237723131198436,
+      1.6875376228708774,
+      1.5009891071822494,
+      2.3519375098403543
+    ],
+    "primary_metric": "tail",
+    "rounds_required": 12,
+    "rounds_seen": 12,
+    "slo_s": 2.0,
+    "status": "PASS",
+    "steady_avg_p50_latency_s": null,
+    "steady_window_size": 0,
+    "steady_window_start_idx": null,
+    "tail_avg_p50_latency_s": 1.878944464920399,
+    "tail_window": 6,
+    "warmup_dominated": false,
+    "warmup_ratio_tail_over_tail3": 1.017393696754474
+  },
+  "candidate": "scheduled4096",
+  "family": "scheduled_tokens",
+  "prefix": {
+    "all_prefix_metrics_seen": [
+      "vllm:external_prefix_cache_hits_created",
+      "vllm:external_prefix_cache_hits_total",
+      "vllm:external_prefix_cache_queries_created",
+      "vllm:external_prefix_cache_queries_total",
+      "vllm:prefix_cache_hits_created",
+      "vllm:prefix_cache_hits_total",
+      "vllm:prefix_cache_queries_created",
+      "vllm:prefix_cache_queries_total"
+    ],
+    "denom_is_total": true,
+    "denom_metric": "vllm:prefix_cache_queries_total",
+    "hit_metric": "vllm:prefix_cache_hits_total",
+    "hit_rate": 0.6644755103627203,
+    "hits": 22250912.0,
+    "queries": 33486429.0,
+    "status": "OK"
+  },
+  "prefix_aligned": true,
+  "probe_base": "bench-runs/autoreply-framework-shootout-20260814/vllm/final-confirmations/pass-2/candidates/scheduled4096/probes/qps_9.4_20260814_213416",
+  "probe_returncode": 0,
+  "qps": 9.4,
+  "status": "PASS"
+}

@@ -1,0 +1,44 @@
+{
+  "status": "PASS",
+  "dist_rows": 1000,
+  "dist_buckets": {
+    "3.8k-4k": 373,
+    "1k-2k": 108,
+    "3.5k-3.8k": 283,
+    "2k-3k": 108,
+    "3k-3.5k": 77,
+    "<1k": 37,
+    "4096-8k": 5,
+    "4k-4095": 9
+  },
+  "dist_token_min": 851,
+  "dist_token_max": 6001,
+  "dist_max_same_bucket_run": 5,
+  "dist_unique_prompts": 1000,
+  "dist_unique_first_blocks": 1000,
+  "expected_n3_shared_prefill_reuse": 0.6666666666666666,
+  "boundary_rows": 310,
+  "boundary_categories": {
+    "trim_edge_3743": 40,
+    "entry_direct": 280,
+    "fixed_prompt_4k_6k": 35,
+    "fixed_prompt_6k_8k": 35,
+    "extreme_8k": 30,
+    "long_personality_short_history": 30,
+    "history_50": 30,
+    "history_51_v4_async": 30,
+    "entry_v4_async": 30,
+    "consecutive_same_role": 25,
+    "long_single_message": 25,
+    "multilingual": 30
+  },
+  "boundary_token_min": 3001,
+  "boundary_token_max": 8121,
+  "checks": [
+    "unique conv_id and valid OpenAI messages",
+    "system/personality prefix preserved; history-only trimming",
+    "production sampling fields exact; no top_k/min_p in log body",
+    "chat-template token counts and production quotas exact",
+    "all required boundary categories present and under max-model-len"
+  ]
+}

@@ -1,0 +1,1852 @@
+[
+  {
+    "class": "not-applicable",
+    "flag": "--additional-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--aggregate-engine-logging",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--all2all-backend",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--allow-credentials",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--allow-deprecated-quantization",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--allowed-headers",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--allowed-local-media-path",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--allowed-media-domains",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--allowed-methods",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--allowed-origins",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "fixed-invariant",
+    "flag": "--api-key",
+    "reason": "local authentication is fixed across candidates"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--api-server-count",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--async-scheduling",
+    "reason": "host scheduling overhead can affect throughput"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--attention-backend",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--attention-config",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--block-size",
+    "reason": "KV block granularity can affect waste and reuse"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--calculate-kv-scales",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--chat-template",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--chat-template-content-format",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--code-revision",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--cohere-format",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--cohere-is-reasoning-model",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--collect-detailed-traces",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--compilation-config",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--config-format",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--convert",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--cp-kv-cache-interleave-size",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--cpu-distributed-timeout-seconds",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--cpu-offload-gb",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--cpu-offload-params",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--cpunodebind",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--cudagraph-capture-sizes",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--cudagraph-metrics",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-parallel-",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-parallel-address",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-parallel-backend",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-parallel-external-lb",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-parallel-hybrid-lb",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-parallel-multi-port-external-lb",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-parallel-rank",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-parallel-rpc-port",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-parallel-size",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-parallel-size-local",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-parallel-start-rank",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--data-parallel-supervisor-port",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--dbo-decode-token-threshold",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--dbo-prefill-token-threshold",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--dcp-comm-backend",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--dcp-kv-cache-interleave-size",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--decode-context-parallel-size",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--default-chat-template-kwargs",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--default-mm-loras",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--device-ids",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--diffusion-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--disable-access-log-for-endpoints",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--disable-cascade-attn",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--disable-chunked-mm-input",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--disable-custom-all-reduce",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--disable-fastapi-docs",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--disable-hybrid-kv-cache-manager",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--disable-log-",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--disable-log-stats",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--disable-nccl-for-dp-synchronization",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--disable-sliding-window",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--disable-uvicorn-access-log",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--distributed-executor-backend",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--distributed-timeout-seconds",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--download-dir",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--dp-supervisor-probe-failure-threshold",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--dp-supervisor-probe-interval-s",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--dp-supervisor-probe-timeout-s",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--dtype",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--ec-transfer-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-auto-tool-choice",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-bf16x3-router-gemm",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--enable-chunked-prefill",
+    "reason": "prefill/decode interleaving can affect p50"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--enable-cumem-allocator",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--enable-dbo",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-elastic-ep",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-ep-weight-filter",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-eplb",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-expert-parallel",
+    "reason": "target is a dense Mistral model"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-fault-tolerance",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-flash-late-interaction",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--enable-flashinfer-autotune",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-force-include-usage",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-layerwise-nvtx-tracing",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--enable-log-deltas",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--enable-log-outputs",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--enable-log-requests",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--enable-logging-iteration-details",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-lora",
+    "reason": "workload does not use LoRA"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--enable-mamba-cache-stochastic-rounding",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--enable-mfu-metrics",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-mixed-moe-lora-format",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-mm-embeds",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-moe-shared-loras",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-offline-docs",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--enable-per-request-metrics",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--enable-prefix-caching",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-prompt-embeds",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-prompt-tokens-details",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-request-id-headers",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-return-routed-experts",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-server-load-tracking",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-sleep-mode",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-ssl-refresh",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-tokenizer-info-endpoint",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--enable-tower-connector-lora",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--enforce-eager",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--eplb-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--exclude-tools-when-tool-choice-none",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--expert-placement-strategy",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--fail-on-environ-validation",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--fault-tolerance-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--fingerprint-mode",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--fingerprint-value",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--fully-sharded-loras",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--gdn-prefill-backend",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--generation-",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--generation-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--gpu-memory-utilization",
+    "reason": "KV capacity and graph headroom trade off"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--grpc",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--h11-max-header-count",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--h11-max-incomplete-event-size",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--headless",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--help",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--hf-config-path",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--hf-overrides",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--hf-token",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--host",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--ignore-patterns",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--interleave-mm-strings",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--io-processor-plugin",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--ir-op-priority",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--jit-monitor-mode",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--jit-monitor-verbose",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--json-arg",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--kda-prefill-backend",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--kernel-config",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--kv-cache-dtype",
+    "reason": "control only; winning dtype remains FP8"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--kv-cache-dtype-skip-layers",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--kv-cache-memory-bytes",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--kv-cache-metrics",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--kv-cache-metrics-sample",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--kv-events-config",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--kv-offloading-backend",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--kv-offloading-size",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--kv-sharing-fast-prefill",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--kv-transfer-config",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--language-model-only",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--limit-",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--limit-mm-per-prompt",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--linear-backend",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--load-format",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--log-config-file",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--log-error-stack",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--logits-processors",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--logprobs-mode",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--long-prefill-token-threshold",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--lora-dtype",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--lora-modules",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--lora-target-modules",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mamba-backend",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mamba-block-size",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--mamba-cache-dtype",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--mamba-cache-mode",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--mamba-cache-philox-rounds",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--mamba-ssm-cache-dtype",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mamba-ssu-algorithm",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--master-addr",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--master-port",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--max-cpu-loras",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--max-cudagraph-capture-size",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--max-log-len",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--max-logprobs",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--max-lora-rank",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--max-loras",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "fixed-invariant",
+    "flag": "--max-model-len",
+    "reason": "workload context limit is immutable"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--max-num-batched-tokens",
+    "reason": "batch token budget can affect packing"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--max-num-scheduled-tokens",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--max-num-seqs",
+    "reason": "sequence admission capacity can affect throughput"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--max-parallel-loading-workers",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--media-io-kwargs",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--membind",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--middleware",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mm-encoder-attn-backend",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mm-encoder-attn-dtype",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mm-encoder-fp8-scale-path",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mm-encoder-fp8-scale-save-margin",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mm-encoder-fp8-scale-save-path",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mm-encoder-only",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mm-encoder-tp-mode",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mm-hasher-algorithm",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mm-ipc-gpu-memory-gb",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--mm-processor-cache-gb",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--mm-processor-cache-type",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mm-processor-kwargs",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--mm-shm-cache-max-object-size-mb",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--mm-tensor-ipc",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "fixed-invariant",
+    "flag": "--model",
+    "reason": "target checkpoint is immutable"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--model-class-overrides",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--model-impl",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--model-loader-extra-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--moe-backend",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--nnodes",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-allow-credentials",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-allow-deprecated-quantization",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-async-scheduling",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-calculate-kv-scales",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-cohere-is-reasoning-model",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-cudagraph-metrics",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-data-parallel-external-lb",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-data-parallel-hybrid-lb",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-disable-cascade-attn",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-disable-chunked-mm-input",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-disable-custom-all-reduce",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-disable-fastapi-docs",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-disable-hybrid-kv-cache-manager",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-disable-nccl-for-dp-synchronization",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-disable-sliding-window",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-disable-uvicorn-access-log",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-auto-tool-choice",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-bf16x3-router-gemm",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-enable-chunked-prefill",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-enable-cumem-allocator",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-enable-dbo",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-elastic-ep",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-ep-weight-filter",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-eplb",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-expert-parallel",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-fault-tolerance",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-flash-late-interaction",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-enable-flashinfer-autotune",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-force-include-usage",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-layerwise-nvtx-tracing",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--no-enable-log-deltas",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--no-enable-log-outputs",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--no-enable-log-requests",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--no-enable-logging-iteration-details",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-lora",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-enable-mamba-cache-stochastic-rounding",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--no-enable-mfu-metrics",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-mixed-moe-lora-format",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-mm-embeds",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-moe-shared-loras",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-offline-docs",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--no-enable-per-request-metrics",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-enable-prefix-caching",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-prompt-embeds",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-prompt-tokens-details",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-request-id-headers",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-return-routed-experts",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-server-load-tracking",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-sleep-mode",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-ssl-refresh",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-tokenizer-info-endpoint",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-enable-tower-connector-lora",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-enforce-eager",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-exclude-tools-when-tool-choice-none",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-fail-on-environ-validation",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-fully-sharded-loras",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-interleave-mm-strings",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-jit-monitor-verbose",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-kv-cache-metrics",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-kv-sharing-fast-prefill",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-language-model-only",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--no-log-error-stack",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-mm-encoder-only",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-numa-bind",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-ray-workers-use-nsight",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-return-tokens-as-token-ids",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--no-scheduler-reserve-full-isl",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-skip-mm-profiling",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-skip-tokenizer-init",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-specialize-active-lora",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-tokens-only",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-trust-remote-code",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-trust-request-chat-template",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-use-fp64-gumbel",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--no-use-replayssm",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--no-use-tqdm-on-load",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--node-rank",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--num-gpu-blocks-override",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--numa-bind",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--numa-bind-cpus",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--numa-bind-nodes",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--offload-backend",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--offload-group-size",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--offload-num-in-group",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--offload-params",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--offload-prefetch-step",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--optimization-level",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--otlp-traces-",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--otlp-traces-endpoint",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--override-attention-dtype",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--override-generation-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--performance-mode",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--physcpubind",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--pipeline-parallel-size",
+    "reason": "experiment has one GPU"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--pooler-config",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--port",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--prefill-context-parallel-size",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--prefill-schedule-interval",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--prefix-caching-hash-algo",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--prefix-match-unit",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--profiler-config",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--pt-load-map-location",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "fixed-invariant",
+    "flag": "--quantization",
+    "reason": "NVFP4 ModelOpt weights are immutable"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--quantization-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--ray-workers-use-nsight",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--reasoning-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--reasoning-parser",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--reasoning-parser-plugin",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--renderer-num-workers",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--replayssm-buffer-len",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--response-role",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--return-tokens-as-token-ids",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--revision",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--root-path",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--runner",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--safetensors-load-strategy",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--safetensors-prefetch-block-size",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--safetensors-prefetch-num-threads",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--scheduler-cls",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--scheduler-reserve-full-isl",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--scheduling-policy",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--seed",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "fixed-invariant",
+    "flag": "--served-model-name",
+    "reason": "served identity is immutable"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--show-hidden-metrics-for-",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--show-hidden-metrics-for-version",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--shutdown-timeout",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--skip-mm-profiling",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--skip-tokenizer-init",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--spec-method",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--spec-model",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--spec-tokens",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--specialize-active-lora",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--speculative-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--ssl-ca-certs",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--ssl-cert-reqs",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--ssl-certfile",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--ssl-ciphers",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--ssl-keyfile",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--stream-interval",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--structured-outputs-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--tensor-parallel-size",
+    "reason": "experiment has one GPU"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--tokenizer",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--tokenizer-mode",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--tokenizer-revision",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--tokens-only",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--tool-call-parser",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--tool-parser-plugin",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--tool-server",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--trust-remote-code",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--trust-request-chat-template",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--ubatch-size",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--uds",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--use-fp64-gumbel",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--use-replayssm",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--use-tqdm-on-load",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "applicable-control",
+    "flag": "--uvicorn-log-level",
+    "reason": "observability or diagnostics can quantify overhead but cannot define the workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--video-pruning-method",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--video-pruning-rate",
+    "reason": "belongs to a model, topology, modality, or service feature absent from this workload"
+  },
+  {
+    "class": "applicable-search",
+    "flag": "--watermark",
+    "reason": "belongs to an applicable scheduling, cache, kernel, graph, or frontend family"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--weight-transfer-config",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--worker-cls",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  },
+  {
+    "class": "not-applicable",
+    "flag": "--worker-extension-cls",
+    "reason": "audited against the single-GPU dense text-only launch; this option does not alter the applicable serving hot path or is fixed by the checkpoint/API contract"
+  }
+]

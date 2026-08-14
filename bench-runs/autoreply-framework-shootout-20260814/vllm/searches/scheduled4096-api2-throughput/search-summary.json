@@ -1,0 +1,434 @@
+{
+  "adjacent_fail_qps": 9.5,
+  "best_pass_qps": 9.4,
+  "candidate": "scheduled4096-api2-throughput",
+  "final_bracket": [
+    9.4,
+    9.5
+  ],
+  "fixed_max_model_len": 8192,
+  "probes": [
+    {
+      "analysis": {
+        "avg_p50_latency_s": 0.8707186195533723,
+        "notes": [
+          "auto-steady: detected 12-round window starting at round 1 (1-indexed), avg 0.87s used as primary."
+        ],
+        "per_round_p50": [
+          0.9353670054115355,
+          0.8761444371193647,
+          0.7678161030635238,
+          0.8351634950377047,
+          0.8903431319631636,
+          0.9077875190414488,
+          0.8820391069166362,
+          0.8286285540089011,
+          0.957890850957483,
+          0.9172794339247048,
+          0.8776600412093103,
+          0.7725037559866905
+        ],
+        "primary_metric": "steady",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "PASS",
+        "steady_avg_p50_latency_s": 0.8707186195533723,
+        "steady_window_size": 12,
+        "steady_window_start_idx": 0,
+        "tail_avg_p50_latency_s": 0.8726669571672877,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 1.0196918240560624
+      },
+      "candidate": "scheduled4096-api2-throughput",
+      "family": "interaction",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644769151206197,
+        "hits": 20091328.0,
+        "queries": 30236307.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/scheduled4096-api2-throughput/points/qps-8p5/candidates/scheduled4096-api2-throughput/probes/qps_8.5_20260814_200921",
+      "probe_returncode": 0,
+      "qps": 8.5,
+      "status": "PASS"
+    },
+    {
+      "analysis": {
+        "avg_p50_latency_s": 21.64353307018367,
+        "notes": [
+          "auto-steady: detected 6-round window starting at round 7 (1-indexed), avg 21.64s used as primary."
+        ],
+        "per_round_p50": [
+          3.9322472533676773,
+          6.278597612865269,
+          8.020822197664529,
+          9.999897930771112,
+          12.591450825799257,
+          14.398223139811307,
+          16.23595116706565,
+          18.841524694114923,
+          20.55660361656919,
+          22.42961288895458,
+          25.033880684059113,
+          26.76362537033856
+        ],
+        "primary_metric": "steady",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "FAIL",
+        "steady_avg_p50_latency_s": 21.64353307018367,
+        "steady_window_size": 6,
+        "steady_window_start_idx": 6,
+        "tail_avg_p50_latency_s": 21.64353307018367,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 0.8747557514673842
+      },
+      "candidate": "scheduled4096-api2-throughput",
+      "family": "interaction",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644742030669388,
+        "hits": 24829472.0,
+        "queries": 37367097.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/scheduled4096-api2-throughput/points/qps-10p5/candidates/scheduled4096-api2-throughput/probes/qps_10.5_20260814_201641",
+      "probe_returncode": 1,
+      "qps": 10.5,
+      "status": "FAIL"
+    },
+    {
+      "analysis": {
+        "avg_p50_latency_s": 2.077409776005273,
+        "notes": [
+          "auto-steady: no steady window detected within --steady-tolerance 0.30 and --steady-min-window 3; falling back to tail-6."
+        ],
+        "per_round_p50": [
+          1.9163833460770547,
+          2.185726765077561,
+          1.979176452383399,
+          1.7966083898209035,
+          2.5401708371937275,
+          1.7460170472040772,
+          2.04798656469211,
+          2.103841100819409,
+          2.321485775988549,
+          1.8062337157316506,
+          1.7054989309981465,
+          2.4794125678017735
+        ],
+        "primary_metric": "tail",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "FAIL",
+        "steady_avg_p50_latency_s": null,
+        "steady_window_size": 0,
+        "steady_window_start_idx": null,
+        "tail_avg_p50_latency_s": 2.077409776005273,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 1.0402400717811844
+      },
+      "candidate": "scheduled4096-api2-throughput",
+      "family": "interaction",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644764393412989,
+        "hits": 22494592.0,
+        "queries": 33853107.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/scheduled4096-api2-throughput/points/qps-9p5/candidates/scheduled4096-api2-throughput/probes/qps_9.5_20260814_202425",
+      "probe_returncode": 1,
+      "qps": 9.5,
+      "status": "FAIL"
+    },
+    {
+      "analysis": {
+        "avg_p50_latency_s": 1.2344687276442226,
+        "notes": [
+          "auto-steady: detected 12-round window starting at round 1 (1-indexed), avg 1.23s used as primary."
+        ],
+        "per_round_p50": [
+          1.2808650727383792,
+          1.3192464802414179,
+          1.1361417293082923,
+          1.0520315053872764,
+          1.5142701270524412,
+          1.1345474584959447,
+          1.248073307564482,
+          1.0976103320717812,
+          1.490090831182897,
+          1.1037134937942028,
+          1.2013805089518428,
+          1.235653884941712
+        ],
+        "primary_metric": "steady",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "PASS",
+        "steady_avg_p50_latency_s": 1.2344687276442226,
+        "steady_window_size": 12,
+        "steady_window_start_idx": 0,
+        "tail_avg_p50_latency_s": 1.2294203930844863,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 1.0416616195913437
+      },
+      "candidate": "scheduled4096-api2-throughput",
+      "family": "interaction",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644737953374836,
+        "hits": 21281984.0,
+        "queries": 32028327.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/scheduled4096-api2-throughput/points/qps-9p0/candidates/scheduled4096-api2-throughput/probes/qps_9.0_20260814_203145",
+      "probe_returncode": 0,
+      "qps": 9.0,
+      "status": "PASS"
+    },
+    {
+      "analysis": {
+        "avg_p50_latency_s": 1.4176560844449948,
+        "notes": [
+          "auto-steady: detected 3-round window starting at round 10 (1-indexed), avg 1.42s used as primary."
+        ],
+        "per_round_p50": [
+          1.468877742998302,
+          1.5814642845652997,
+          1.392563309520483,
+          1.1822017503436655,
+          1.832518755691126,
+          1.309058754472062,
+          1.4251739280298352,
+          1.4775280598551035,
+          1.803147157188505,
+          1.1906721466220915,
+          1.379677040502429,
+          1.6826190662104636
+        ],
+        "primary_metric": "steady",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "PASS",
+        "steady_avg_p50_latency_s": 1.4176560844449948,
+        "steady_window_size": 3,
+        "steady_window_start_idx": 9,
+        "tail_avg_p50_latency_s": 1.4931362330680713,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 1.0532429193873396
+      },
+      "candidate": "scheduled4096-api2-throughput",
+      "family": "interaction",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644740566944025,
+        "hits": 21770624.0,
+        "queries": 32763693.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/scheduled4096-api2-throughput/points/qps-9p2/candidates/scheduled4096-api2-throughput/probes/qps_9.2_20260814_203904",
+      "probe_returncode": 0,
+      "qps": 9.2,
+      "status": "PASS"
+    },
+    {
+      "analysis": {
+        "avg_p50_latency_s": 1.5700715637455385,
+        "notes": [
+          "auto-steady: detected 3-round window starting at round 10 (1-indexed), avg 1.57s used as primary."
+        ],
+        "per_round_p50": [
+          1.555639858590439,
+          1.7241863547824323,
+          1.5936062159016728,
+          1.3853224590420723,
+          1.933271775022149,
+          1.4726804811507463,
+          1.469561310019344,
+          1.6109836921095848,
+          1.9886859538964927,
+          1.3732557008042932,
+          1.4021181766875088,
+          1.9348408137448132
+        ],
+        "primary_metric": "steady",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "PASS",
+        "steady_avg_p50_latency_s": 1.5700715637455385,
+        "steady_window_size": 3,
+        "steady_window_start_idx": 9,
+        "tail_avg_p50_latency_s": 1.629907607877006,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 1.0381103928719808
+      },
+      "candidate": "scheduled4096-api2-throughput",
+      "family": "interaction",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644754985161018,
+        "hits": 22020320.0,
+        "queries": 33139401.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/scheduled4096-api2-throughput/points/qps-9p3/candidates/scheduled4096-api2-throughput/probes/qps_9.3_20260814_204625",
+      "probe_returncode": 0,
+      "qps": 9.3,
+      "status": "PASS"
+    },
+    {
+      "analysis": {
+        "avg_p50_latency_s": 1.8469730264429625,
+        "notes": [
+          "auto-steady: no steady window detected within --steady-tolerance 0.30 and --steady-min-window 3; falling back to tail-6."
+        ],
+        "per_round_p50": [
+          1.8337264000438154,
+          2.0136987341102213,
+          1.6615123325027525,
+          1.4822321066167206,
+          2.219954955158755,
+          1.5673119388520718,
+          1.8041952268686146,
+          1.7976181604899466,
+          2.1114776500035077,
+          1.6298135644756258,
+          1.4767512739636004,
+          2.2619822828564793
+        ],
+        "primary_metric": "tail",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "PASS",
+        "steady_avg_p50_latency_s": null,
+        "steady_window_size": 0,
+        "steady_window_start_idx": null,
+        "tail_avg_p50_latency_s": 1.8469730264429625,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 1.0321077479881706
+      },
+      "candidate": "scheduled4096-api2-throughput",
+      "family": "interaction",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644755103627203,
+        "hits": 22250912.0,
+        "queries": 33486429.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/scheduled4096-api2-throughput/points/qps-9p4/candidates/scheduled4096-api2-throughput/probes/qps_9.4_20260814_205345",
+      "probe_returncode": 0,
+      "qps": 9.4,
+      "status": "PASS"
+    }
+  ],
+  "rounds_per_point": 12,
+  "tail_window": 6
+}

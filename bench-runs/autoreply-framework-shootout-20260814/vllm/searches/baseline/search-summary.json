@@ -1,0 +1,434 @@
+{
+  "adjacent_fail_qps": 9.4,
+  "best_pass_qps": 9.3,
+  "candidate": "baseline",
+  "final_bracket": [
+    9.3,
+    9.4
+  ],
+  "fixed_max_model_len": 8192,
+  "probes": [
+    {
+      "analysis": {
+        "avg_p50_latency_s": 0.8876130930148065,
+        "notes": [
+          "auto-steady: detected 12-round window starting at round 1 (1-indexed), avg 0.89s used as primary."
+        ],
+        "per_round_p50": [
+          0.9289581566117704,
+          0.8798551890067756,
+          0.8297820058651268,
+          0.8579401359893382,
+          0.8959527439437807,
+          0.9296820880845189,
+          0.9286310342140496,
+          0.8283012290485203,
+          0.9354734448716044,
+          0.9384200619533658,
+          0.8983177808113396,
+          0.8000432457774878
+        ],
+        "primary_metric": "steady",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "PASS",
+        "steady_avg_p50_latency_s": 0.8876130930148065,
+        "steady_window_size": 12,
+        "steady_window_start_idx": 0,
+        "tail_avg_p50_latency_s": 0.8881977994460613,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 1.0105478266348487
+      },
+      "candidate": "baseline",
+      "family": "baseline",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644769151206197,
+        "hits": 20091328.0,
+        "queries": 30236307.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/baseline/points/qps-8p5/candidates/baseline/probes/qps_8.5_20260814_155051",
+      "probe_returncode": 0,
+      "qps": 8.5,
+      "status": "PASS"
+    },
+    {
+      "analysis": {
+        "avg_p50_latency_s": 27.499213909109432,
+        "notes": [
+          "auto-steady: detected 6-round window starting at round 7 (1-indexed), avg 27.50s used as primary."
+        ],
+        "per_round_p50": [
+          5.180899052880704,
+          8.01101861987263,
+          10.256363647989929,
+          12.819129732903093,
+          15.88512613857165,
+          18.23070470802486,
+          20.59659888409078,
+          23.914612068794668,
+          26.081162239424884,
+          28.682356228120625,
+          31.848096951376647,
+          33.872457082848996
+        ],
+        "primary_metric": "steady",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "FAIL",
+        "steady_avg_p50_latency_s": 27.499213909109432,
+        "steady_window_size": 6,
+        "steady_window_start_idx": 6,
+        "tail_avg_p50_latency_s": 27.499213909109432,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 0.8738887551037022
+      },
+      "candidate": "baseline",
+      "family": "baseline",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644742030669388,
+        "hits": 24829472.0,
+        "queries": 37367097.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/baseline/points/qps-10p5/candidates/baseline/probes/qps_10.5_20260814_155811",
+      "probe_returncode": 1,
+      "qps": 10.5,
+      "status": "FAIL"
+    },
+    {
+      "analysis": {
+        "avg_p50_latency_s": 2.6968152474146336,
+        "notes": [
+          "auto-steady: no steady window detected within --steady-tolerance 0.30 and --steady-min-window 3; falling back to tail-6."
+        ],
+        "per_round_p50": [
+          1.9030506699346006,
+          2.982444005087018,
+          2.04047504812479,
+          1.8591428832150996,
+          3.533230797853321,
+          2.080107735004276,
+          2.4260096037760377,
+          2.4939359850250185,
+          3.768573335837573,
+          1.9846339020878077,
+          1.8826124058105052,
+          3.62512625195086
+        ],
+        "primary_metric": "tail",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "FAIL",
+        "steady_avg_p50_latency_s": null,
+        "steady_window_size": 0,
+        "steady_window_start_idx": null,
+        "tail_avg_p50_latency_s": 2.6968152474146336,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 1.0798242716332258
+      },
+      "candidate": "baseline",
+      "family": "baseline",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644764393412989,
+        "hits": 22494592.0,
+        "queries": 33853107.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/baseline/points/qps-9p5/candidates/baseline/probes/qps_9.5_20260814_160602",
+      "probe_returncode": 1,
+      "qps": 9.5,
+      "status": "FAIL"
+    },
+    {
+      "analysis": {
+        "avg_p50_latency_s": 1.2085580687105124,
+        "notes": [
+          "auto-steady: detected 7-round window starting at round 6 (1-indexed), avg 1.21s used as primary."
+        ],
+        "per_round_p50": [
+          1.3077612221240997,
+          1.3535648700781167,
+          1.1961097854655236,
+          1.0352985833305866,
+          1.5372957303188741,
+          1.1150823622010648,
+          1.2258305745199323,
+          1.1467002702411264,
+          1.5026443265378475,
+          1.0587281759362668,
+          1.2442616592161357,
+          1.1666591123212129
+        ],
+        "primary_metric": "steady",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "PASS",
+        "steady_avg_p50_latency_s": 1.2085580687105124,
+        "steady_window_size": 7,
+        "steady_window_start_idx": 5,
+        "tail_avg_p50_latency_s": 1.2241373531287536,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 1.058439085619969
+      },
+      "candidate": "baseline",
+      "family": "baseline",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644737953374836,
+        "hits": 21281984.0,
+        "queries": 32028327.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/baseline/points/qps-9p0/candidates/baseline/probes/qps_9.0_20260814_161327",
+      "probe_returncode": 0,
+      "qps": 9.0,
+      "status": "PASS"
+    },
+    {
+      "analysis": {
+        "avg_p50_latency_s": 1.456560439391372,
+        "notes": [
+          "auto-steady: detected 12-round window starting at round 1 (1-indexed), avg 1.46s used as primary."
+        ],
+        "per_round_p50": [
+          1.4338077600114048,
+          1.466838544467464,
+          1.4713449398986995,
+          1.2128492251504213,
+          1.8077580339740962,
+          1.3132191570475698,
+          1.4996241659391671,
+          1.3955599085893482,
+          1.7888106645550579,
+          1.1380689113866538,
+          1.3765762478578836,
+          1.5742677138186991
+        ],
+        "primary_metric": "steady",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "PASS",
+        "steady_avg_p50_latency_s": 1.456560439391372,
+        "steady_window_size": 12,
+        "steady_window_start_idx": 0,
+        "tail_avg_p50_latency_s": 1.4621512686911349,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 1.0727677361311108
+      },
+      "candidate": "baseline",
+      "family": "baseline",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644740566944025,
+        "hits": 21770624.0,
+        "queries": 32763693.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/baseline/points/qps-9p2/candidates/baseline/probes/qps_9.2_20260814_162047",
+      "probe_returncode": 0,
+      "qps": 9.2,
+      "status": "PASS"
+    },
+    {
+      "analysis": {
+        "avg_p50_latency_s": 1.5897454226699967,
+        "notes": [
+          "auto-steady: detected 3-round window starting at round 10 (1-indexed), avg 1.59s used as primary."
+        ],
+        "per_round_p50": [
+          1.564481211360544,
+          1.796235163230449,
+          1.5772534618154168,
+          1.3581715850159526,
+          2.0811121379956603,
+          1.5317111019976437,
+          1.712033067829907,
+          1.6266671759076416,
+          2.0847049108706415,
+          1.3904131199233234,
+          1.493982900865376,
+          1.884840247221291
+        ],
+        "primary_metric": "steady",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "PASS",
+        "steady_avg_p50_latency_s": 1.5897454226699967,
+        "steady_window_size": 3,
+        "steady_window_start_idx": 9,
+        "tail_avg_p50_latency_s": 1.6987735704363633,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 1.0685821429089273
+      },
+      "candidate": "baseline",
+      "family": "baseline",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644754985161018,
+        "hits": 22020320.0,
+        "queries": 33139401.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/baseline/points/qps-9p3/candidates/baseline/probes/qps_9.3_20260814_162806",
+      "probe_returncode": 0,
+      "qps": 9.3,
+      "status": "PASS"
+    },
+    {
+      "analysis": {
+        "avg_p50_latency_s": 2.018864490518657,
+        "notes": [
+          "auto-steady: no steady window detected within --steady-tolerance 0.30 and --steady-min-window 3; falling back to tail-6."
+        ],
+        "per_round_p50": [
+          1.8134300140663981,
+          2.0183144963812083,
+          1.7278199875727296,
+          1.5748455405700952,
+          2.7699457122944295,
+          1.7957491769921035,
+          1.9493959480896592,
+          1.9094688789919019,
+          2.4351431829854846,
+          1.6237401375547051,
+          1.5056930913124233,
+          2.689745704177767
+        ],
+        "primary_metric": "tail",
+        "rounds_required": 12,
+        "rounds_seen": 12,
+        "slo_s": 2.0,
+        "status": "FAIL",
+        "steady_avg_p50_latency_s": null,
+        "steady_window_size": 0,
+        "steady_window_start_idx": null,
+        "tail_avg_p50_latency_s": 2.018864490518657,
+        "tail_window": 6,
+        "warmup_dominated": false,
+        "warmup_ratio_tail_over_tail3": 1.0407986317730993
+      },
+      "candidate": "baseline",
+      "family": "baseline",
+      "prefix": {
+        "all_prefix_metrics_seen": [
+          "vllm:external_prefix_cache_hits_created",
+          "vllm:external_prefix_cache_hits_total",
+          "vllm:external_prefix_cache_queries_created",
+          "vllm:external_prefix_cache_queries_total",
+          "vllm:prefix_cache_hits_created",
+          "vllm:prefix_cache_hits_total",
+          "vllm:prefix_cache_queries_created",
+          "vllm:prefix_cache_queries_total"
+        ],
+        "denom_is_total": true,
+        "denom_metric": "vllm:prefix_cache_queries_total",
+        "hit_metric": "vllm:prefix_cache_hits_total",
+        "hit_rate": 0.6644755103627203,
+        "hits": 22250912.0,
+        "queries": 33486429.0,
+        "status": "OK"
+      },
+      "prefix_aligned": true,
+      "probe_base": "/root/llm-inference-benchmarking/bench-runs/autoreply-framework-shootout-20260814/vllm/searches/baseline/points/qps-9p4/candidates/baseline/probes/qps_9.4_20260814_163526",
+      "probe_returncode": 1,
+      "qps": 9.4,
+      "status": "FAIL"
+    }
+  ],
+  "rounds_per_point": 12,
+  "tail_window": 6
+}

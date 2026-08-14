@@ -1,0 +1,69 @@
+{
+  "date": "2026-08-14",
+  "external_qps_unit": "HTTP requests per second; n=3 remains inside each request",
+  "fixed_max_model_len": 8192,
+  "slo": {
+    "metric": "client p50 E2E seconds",
+    "operator": "<",
+    "value": 2.0
+  },
+  "vllm": {
+    "image": "vllm/vllm-openai:v0.27.1",
+    "baseline": {
+      "best_pass_qps": 9.3,
+      "adjacent_fail_qps": 9.4
+    },
+    "winner": {
+      "candidate": "scheduled4096",
+      "additional_args": [
+        "--max-num-scheduled-tokens",
+        "4096"
+      ],
+      "best_pass_qps": 9.4,
+      "adjacent_fail_qps": 9.5,
+      "absolute_qps_gain": 0.1,
+      "relative_percent_gain": 1.08,
+      "confirmation_p50_e2e_s": [
+        1.8084042101399973,
+        1.878944464920399,
+        1.8713259007393692
+      ],
+      "adjacent_fail_p50_e2e_s": 2.1382775810391954,
+      "prefix_cache_hit_rate": 0.6644755103627203
+    },
+    "other_positive_candidates": [
+      {
+        "candidate": "performance-throughput",
+        "best_pass_qps": 9.4,
+        "absolute_qps_gain": 0.1,
+        "relative_percent_gain": 1.08
+      },
+      {
+        "candidate": "linear-cutlass",
+        "best_pass_qps": 9.4,
+        "absolute_qps_gain": 0.1,
+        "relative_percent_gain": 1.08
+      },
+      {
+        "candidate": "scheduled4096-api2-throughput",
+        "best_pass_qps": 9.4,
+        "absolute_qps_gain": 0.1,
+        "relative_percent_gain": 1.08
+      }
+    ]
+  },
+  "tensorrt_llm": {
+    "stable_image": "nvcr.io/nvidia/tensorrt-llm/release:1.2.1",
+    "rc_fallback_image": "nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc22",
+    "status": "INCOMPATIBLE_WITH_FIXED_REQUEST",
+    "qps_search_permitted": false,
+    "reason": "Both images reject the immutable top_k=-1 request with HTTP 400."
+  },
+  "draft_training_research": {
+    "primary": "NVIDIA Model Optimizer EAGLE3",
+    "vllm_native_fallback": "vLLM Speculators",
+    "sglang_native_fallback": "SpecForge",
+    "draft_trained": false,
+    "qps_gain_measured": false
+  }
+}
