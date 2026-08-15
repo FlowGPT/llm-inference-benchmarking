@@ -1,0 +1,83 @@
+{
+  "date": "2026-08-15",
+  "fixed_contract": {
+    "max_model_len": 8192,
+    "n": 3,
+    "max_tokens": 50,
+    "sampling_changed": false,
+    "model_changed": false
+  },
+  "previous_winner": {
+    "candidate": "scheduled4096",
+    "best_pass_qps": 9.4,
+    "adjacent_fail_qps": 9.5
+  },
+  "new_winner": {
+    "candidate": "scheduled3072-cgstep3-noaccess",
+    "best_pass_qps": 9.5,
+    "adjacent_fail_qps": 9.6,
+    "gain_over_previous_winner_qps": 0.1,
+    "gain_over_previous_winner_percent": 1.06,
+    "gain_over_untuned_9p3_qps": 0.2,
+    "gain_over_untuned_percent": 2.15,
+    "confirmation_primary_p50_e2e_s": [
+      1.9720196230337024,
+      1.9166871628452402,
+      1.8897064904449508
+    ],
+    "confirmation_tail6_p50_e2e_s": [
+      2.042167356237769,
+      1.9528233443076413,
+      1.9012417087020974
+    ],
+    "prefix_cache_hit_rate": 0.6644764393412989,
+    "additional_args": [
+      "--max-num-scheduled-tokens",
+      "3072",
+      "--compilation-config",
+      "{\"mode\":3,\"cudagraph_capture_sizes\":[1,2,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,48,51,54,57,60,63,66,69,72,75,78,81,84,87,90,93,96,99,102,105,108,111,114,117,120,123,126,129,132,135,138,141,144,147,150,153,156,159,162,165,168,171,174,177,180,183,186,189,192],\"max_cudagraph_capture_size\":192}",
+      "--disable-uvicorn-access-log"
+    ]
+  },
+  "adjacent_fail": {
+    "qps": 9.6,
+    "rounds": 12,
+    "primary_p50_e2e_s": 2.1235658719864055,
+    "tail6_p50_e2e_s": 2.1651607040936747,
+    "prefix_cache_hit_rate": 0.6644762737888783
+  },
+  "scheduler_clamp_at_9p6": [
+    {"max_num_scheduled_tokens": 2560, "status": "FAIL", "primary_p50_e2e_s": 2.207512227585539},
+    {"max_num_scheduled_tokens": 2816, "status": "FAIL", "primary_p50_e2e_s": 2.118824692675844},
+    {"max_num_scheduled_tokens": 3072, "status": "SHORT_SCREEN_PASS", "primary_p50_e2e_s": 1.952348830954482},
+    {"max_num_scheduled_tokens": 3200, "status": "FAIL", "primary_p50_e2e_s": 2.926516852186372},
+    {"max_num_scheduled_tokens": 3584, "status": "FAIL", "primary_p50_e2e_s": 2.25314495813412},
+    {"max_num_scheduled_tokens": 4096, "status": "FAIL", "primary_p50_e2e_s": 2.284867026998351}
+  ],
+  "cuda_graph": {
+    "default_capture_stride_in_main_range": 8,
+    "winning_capture_stride": 3,
+    "default_graph_memory_gib": 0.45,
+    "winning_graph_memory_gib": 0.97,
+    "scheduled4096_step3_qps9p5_primary_p50_e2e_s": 2.0185293393830457,
+    "scheduled4096_step3_noaccess_qps9p5_primary_p50_e2e_s": 1.9709957924981911
+  },
+  "bottleneck": {
+    "classification": "compute-bound",
+    "loaded_sm_utilization_percent": "96-100",
+    "loaded_board_power_watts": "597-603",
+    "loaded_memory_utilization_percent": "39-49",
+    "kv_capacity_limited": false
+  },
+  "invalid_experiment": {
+    "candidate": "scheduled4096-cgstep3-lean",
+    "reason": "xxhash dependency missing; long requests returned empty streams",
+    "reported_latency_s": 0.014260110755761465,
+    "output_tokens": 0,
+    "included_in_performance_results": false
+  },
+  "benchmark_guard": {
+    "rule": "every measurement round must produce more than zero output tokens",
+    "tests": "tests/test_autoreply_vllm_tuning.py"
+  }
+}

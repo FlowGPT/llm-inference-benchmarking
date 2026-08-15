@@ -87,6 +87,45 @@ def test_probe_shell_keeps_sampling_literal_and_accepts_named_run_settings():
     assert "sed -n 's/^API_KEY=" not in text
 
 
+def test_probe_output_contract_rejects_empty_success_rounds(tmp_path):
+    output = tmp_path / "probe.jsonl"
+    output.write_text(
+        json.dumps(
+            {
+                "measurement_round": 1,
+                "success_rate": 100.0,
+                "output_tokens": 0,
+            }
+        )
+        + "\n"
+    )
+
+    result = tuning.validate_probe_output(output)
+
+    assert result["status"] == "INVALID_OUTPUT"
+    assert result["empty_output_rounds"] == [1]
+
+
+def test_probe_output_contract_accepts_nonempty_rounds(tmp_path):
+    output = tmp_path / "probe.jsonl"
+    output.write_text(
+        "\n".join(
+            json.dumps({"measurement_round": round_id, "output_tokens": 100})
+            for round_id in (1, 2)
+        )
+        + "\n"
+    )
+
+    result = tuning.validate_probe_output(output)
+
+    assert result == {
+        "status": "OK",
+        "rounds_seen": 2,
+        "total_output_tokens": 200,
+        "empty_output_rounds": [],
+    }
+
+
 def test_binary_search_probes_low_before_high_and_finds_tenth_boundary():
     observed = []
 

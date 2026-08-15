@@ -33,6 +33,7 @@
     {"name":"cumem-on","family":"allocator","hypothesis":"cuMem allocator improves allocation stability","args":["--enable-cumem-allocator"]},
     {"name":"scheduled4096-api2","family":"interaction","hypothesis":"combine the strongest scheduler and frontend improvements","args":["--max-num-scheduled-tokens","4096","--api-server-count","2"]},
     {"name":"scheduled4096-throughput","family":"interaction","hypothesis":"combine the strongest scheduler and compilation-preset improvements","args":["--max-num-scheduled-tokens","4096","--performance-mode","throughput"]},
-    {"name":"scheduled4096-api2-throughput","family":"interaction","hypothesis":"test whether scheduler, frontend, and compilation improvements compose","args":["--max-num-scheduled-tokens","4096","--api-server-count","2","--performance-mode","throughput"]}
+    {"name":"scheduled4096-api2-throughput","family":"interaction","hypothesis":"test whether scheduler, frontend, and compilation improvements compose","args":["--max-num-scheduled-tokens","4096","--api-server-count","2","--performance-mode","throughput"]},
+    {"name":"scheduled3072-cgstep3-noaccess","family":"interaction","hypothesis":"align the prefill issue budget and CUDA Graph padding with n=3 while removing synchronous access-log overhead","args":["--max-num-scheduled-tokens","3072","--compilation-config","{\"mode\":3,\"cudagraph_capture_sizes\":[1,2,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,48,51,54,57,60,63,66,69,72,75,78,81,84,87,90,93,96,99,102,105,108,111,114,117,120,123,126,129,132,135,138,141,144,147,150,153,156,159,162,165,168,171,174,177,180,183,186,189,192],\"max_cudagraph_capture_size\":192}","--disable-uvicorn-access-log"]}
   ]
 }

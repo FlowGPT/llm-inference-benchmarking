@@ -412,6 +412,28 @@ def _probe_base(stdout: str) -> Path:
     raise RuntimeError("probe did not report PROBE_BASE")
 
 
+def validate_probe_output(path: Path) -> dict[str, object]:
+    """Reject superficially successful replay rounds that produced no tokens."""
+    rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    rounds = [row for row in rows if row.get("measurement_round") is not None]
+    empty_rounds = [
+        int(row["measurement_round"])
+        for row in rounds
+        if not isinstance(row.get("output_tokens"), (int, float))
+        or row["output_tokens"] <= 0
+    ]
+    return {
+        "status": "OK" if rounds and not empty_rounds else "INVALID_OUTPUT",
+        "rounds_seen": len(rounds),
+        "total_output_tokens": sum(
+            row.get("output_tokens", 0)
+            for row in rounds
+            if isinstance(row.get("output_tokens"), (int, float))
+        ),
+        "empty_output_rounds": empty_rounds,
+    }
+
+
 def screen_candidate(
     candidate: Candidate,
     *,
@@ -474,12 +496,14 @@ def screen_candidate(
         base = _probe_base(probe.stdout)
         analysis = json.loads(Path(f"{base}.analysis.json").read_text())
         prefix = json.loads(Path(f"{base}.prefix.json").read_text())
+        output_contract = validate_probe_output(Path(f"{base}.jsonl"))
         hit_rate = prefix.get("hit_rate")
         prefix_aligned = isinstance(hit_rate, (int, float)) and 0.66 <= hit_rate <= 0.67
         passed = (
             probe.returncode == 0
             and analysis.get("status") == "PASS"
             and prefix_aligned
+            and output_contract["status"] == "OK"
         )
         result = {
             "candidate": candidate.name,
@@ -490,6 +514,7 @@ def screen_candidate(
             "analysis": analysis,
             "prefix": prefix,
             "prefix_aligned": prefix_aligned,
+            "output_contract": output_contract,
             "probe_base": str(base),
         }
         atomic_write_json(candidate_dir / "result.json", result)

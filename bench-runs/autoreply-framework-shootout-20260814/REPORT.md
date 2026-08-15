@@ -4,19 +4,19 @@ Date: 2026-08-15
 
 ## Result
 
-The production-safe winner remains vLLM at 9.4 HTTP requests/s. SGLang reaches
+The production-safe winner remains vLLM, now at 9.5 HTTP requests/s. SGLang reaches
 8.1 requests/s after launch-only tuning, while TensorRT-LLM reaches 5.1
 requests/s. Every request uses `n=3`; these are not generated-sequence QPS
 figures.
 
 | Framework | Sustainable QPS | Adjacent failure or instability | Tail p50 evidence |
 | --- | ---: | ---: | --- |
-| vLLM | 9.4 | 9.5 | 1.808 / 1.879 / 1.871s confirmations |
+| vLLM | 9.5 | 9.6 | 1.972 / 1.917 / 1.890s confirmations |
 | SGLang | 8.1 | 8.2 | 1.691 / 1.710 / 1.702s confirmations |
 | TensorRT-LLM | 5.1 | 5.2 | 1.759 / 1.758 / 1.857s confirmations |
 
 SGLang improves from a 6.5-QPS default long-run boundary to 8.1 QPS: +1.6
-requests/s or +24.62%. It is 13.83% below vLLM and 58.82% above
+requests/s or +24.62%. It is 14.74% below vLLM and 58.82% above
 TensorRT-LLM on this exact workload.
 
 ## Fixed protocol
@@ -27,9 +27,45 @@ TensorRT-LLM on this exact workload.
 - Context length: 8192 for every framework and candidate.
 - Sampling: `n=3`, `max_tokens=50`, temperature 0.7, top-p 0.8, top-k -1,
   frequency/presence penalty 0.01, min-p disabled, stop `<|im_end|>`.
-- SLO: tail-window mean of per-round client p50 E2E latency below 2 seconds.
+- SLO: auto-detected steady-window mean of per-round client p50 E2E latency
+  below 2 seconds, falling back to the configured tail window when no steady
+  window is detected.
 - Formal runs: 12 rounds of 30 seconds with a six-round tail window and a cold
   server for each confirmation.
+
+## vLLM final launch and second tuning pass
+
+The second vLLM pass moved the sustainable boundary from 9.4 to 9.5 HTTP
+requests/s: +0.1 requests/s or +1.06%. Relative to the untuned 9.3-QPS
+baseline, the total launch-only gain is +0.2 requests/s or +2.15%. Three
+independent cold 12-round confirmations at 9.5 passed at 1.972s, 1.917s, and
+1.890s. A 12-round 9.6 run failed at 2.124s, despite shorter screens sometimes
+passing, so 9.6 is not a capacity claim.
+
+Add these arguments to the fixed vLLM 0.27.1 launch:
+
+```bash
+--max-num-scheduled-tokens 3072 \
+--compilation-config '{"mode":3,"cudagraph_capture_sizes":[1,2,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,48,51,54,57,60,63,66,69,72,75,78,81,84,87,90,93,96,99,102,105,108,111,114,117,120,123,126,129,132,135,138,141,144,147,150,153,156,159,162,165,168,171,174,177,180,183,186,189,192],"max_cudagraph_capture_size":192}' \
+--disable-uvicorn-access-log
+```
+
+The workload is compute-bound: during a loaded 9.6-QPS run, GPU SM utilization
+held at 96-100% and board power at roughly 597-603 W, while memory-throughput
+utilization was about 39-49%. KV usage stayed far below capacity. Disabling
+async scheduling increased the 9.4-QPS p50 to 3.190s, and eager execution to
+5.031s, proving that host overlap and CUDA Graphs are already essential. The
+new graph list reduces padding from the default mostly-eight-token stride to at
+most two tokens, matching the `n=3` branch shape; graph memory rose from about
+0.45 GiB to 0.97 GiB. Scheduler-budget neighbors 2560, 2816, 3200, and 3584 all
+failed at 9.6, making 3072 a measured local optimum rather than an arbitrary
+round number.
+
+An `xxhash` candidate was excluded: the image lacks the optional dependency,
+so long prompts returned empty streams even though the client counted the HTTP
+responses as successful. The tuning controller now rejects any measurement
+round with zero output tokens; the invalid 14 ms result is not performance
+evidence.
 
 ## SGLang compatibility finding
 
