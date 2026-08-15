@@ -14,14 +14,14 @@ try:
         MODEL_PATH,
         SERVED_MODEL,
         WORKDIR,
-        build_replay_command,
+        build_replay_command as _build_vllm_replay_command,
     )
 except ModuleNotFoundError:  # Direct execution from scripts/.
     from autoreply_vllm_tuning import (
         MODEL_PATH,
         SERVED_MODEL,
         WORKDIR,
-        build_replay_command,
+        build_replay_command as _build_vllm_replay_command,
     )
 
 
@@ -40,6 +40,55 @@ SEARCH_CLI_FLAGS = {
     "--enable_chunked_prefill",
     "--num_postprocess_workers",
 }
+
+
+def build_compatibility_payload(*, top_k_mode: str, stream: bool) -> dict[str, Any]:
+    """Build one fixed request while varying only the top-k wire encoding."""
+    payload: dict[str, Any] = {
+        "model": SERVED_MODEL,
+        "messages": [{"role": "user", "content": "Reply with one short word."}],
+        "n": 3,
+        "max_tokens": 50,
+        "temperature": 0.7,
+        "top_p": 0.8,
+        "frequency_penalty": 0.01,
+        "presence_penalty": 0.01,
+        "stop": ["<|im_end|>"],
+        "stream": stream,
+    }
+    if top_k_mode == "negative-one":
+        payload["top_k"] = -1
+    elif top_k_mode == "null":
+        payload["top_k"] = None
+    elif top_k_mode != "omit":
+        raise ValueError(f"unknown top_k mode: {top_k_mode!r}")
+    return payload
+
+
+def build_replay_command(
+    *,
+    qps: float,
+    rounds: int,
+    output: Path,
+    api_key: str,
+    api_base: str = "http://127.0.0.1:8080/v1",
+) -> list[str]:
+    """Build the fixed workload with TensorRT's disabled-top-k wire mapping."""
+    command = _build_vllm_replay_command(
+        qps=qps,
+        rounds=rounds,
+        output=output,
+        api_key=api_key,
+        api_base=api_base,
+    )
+    payload_index = command.index("--extra-body-json") + 1
+    payload = json.loads(command[payload_index])
+    if payload.get("top_k") != -1:
+        raise ValueError("canonical AutoReply top_k sentinel is no longer -1")
+    payload["top_k"] = None
+    command[payload_index] = json.dumps(payload, separators=(",", ":"))
+    command.append("--omit-none-extra-body")
+    return command
 
 
 def extract_flags(help_text: str) -> list[str]:
@@ -169,16 +218,17 @@ def build_server_command(
             "0.0.0.0",
             "--port",
             "8000",
-            "--max_batch_size",
-            "96",
-            "--max_num_tokens",
-            "8192",
             "--max_seq_len",
             "8192",
-            "--kv_cache_free_gpu_memory_fraction",
-            "0.90",
         ]
     )
+    for flag, value in (
+        ("--max_batch_size", "96"),
+        ("--max_num_tokens", "8192"),
+        ("--kv_cache_free_gpu_memory_fraction", "0.90"),
+    ):
+        if flag not in candidate.cli_args:
+            command.extend([flag, value])
     if config_path is not None:
         command.extend(["--config", "/run/autoreply-options.yml"])
     command.extend(candidate.cli_args)

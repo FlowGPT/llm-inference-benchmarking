@@ -7,7 +7,124 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
 import online_replay
+
+
+def test_cli_exposes_opt_in_none_extra_body_omission():
+    result = subprocess.run(
+        [sys.executable, str(Path(online_replay.__file__)), "--help"],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    assert "--omit-none-extra-body" in result.stdout
+
+
+def test_opt_in_none_omission_reaches_openai_wire_without_top_k():
+    captured = []
+
+    async def handler(request):
+        captured.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                "id": "chatcmpl-test",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "model",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "ok"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 1,
+                    "completion_tokens": 1,
+                    "total_tokens": 2,
+                },
+            },
+        )
+
+    async def scenario():
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as http_client:
+            client = online_replay.openai.AsyncOpenAI(
+                api_key="test",
+                base_url="http://test/v1",
+                http_client=http_client,
+            )
+            extra_body = online_replay._build_extra_body(
+                {"extra_body": {"top_k": None, "n": 3}},
+                omit_none_static_extra=True,
+            )
+            await client.chat.completions.create(
+                model="model",
+                messages=[{"role": "user", "content": "hello"}],
+                extra_body=extra_body,
+            )
+            await client.close()
+
+    asyncio.run(scenario())
+
+    assert captured[0]["n"] == 3
+    assert "top_k" not in captured[0]
+
+
+def test_default_openai_wire_preserves_explicit_null_extra_body():
+    captured = []
+
+    async def handler(request):
+        captured.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                "id": "chatcmpl-test",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "model",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "ok"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 1,
+                    "completion_tokens": 1,
+                    "total_tokens": 2,
+                },
+            },
+        )
+
+    async def scenario():
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as http_client:
+            client = online_replay.openai.AsyncOpenAI(
+                api_key="test",
+                base_url="http://test/v1",
+                http_client=http_client,
+            )
+            extra_body = online_replay._build_extra_body(
+                {"extra_body": {"top_k": None}},
+            )
+            await client.chat.completions.create(
+                model="model",
+                messages=[{"role": "user", "content": "hello"}],
+                extra_body=extra_body,
+            )
+            await client.close()
+
+    asyncio.run(scenario())
+
+    assert "top_k" in captured[0]
+    assert captured[0]["top_k"] is None
 
 
 def test_qps_replay_waits_for_inflight_request_after_reader_exhaustion(
@@ -241,7 +358,13 @@ def test_continuous_qps_replay_drains_only_after_all_windows(monkeypatch):
     asyncio.run(scenario())
 
 
-def _job(enable_kv_evict: bool, *, forward: bool):
+def _job(
+    enable_kv_evict: bool,
+    *,
+    forward: bool,
+    extra_body=None,
+    omit_none_extra_body: bool = False,
+):
     line = json.dumps(
         {
             "ts": 1,
@@ -266,6 +389,8 @@ def _job(enable_kv_evict: bool, *, forward: bool):
         "prefer_log_body": False,
         "min_p_supported": False,
         "forward_kv_evict": forward,
+        "extra_body": extra_body,
+        "omit_none_extra_body": omit_none_extra_body,
     }
     job = online_replay.process_log_line(line, ep_config=config)
     assert job is not None
@@ -320,6 +445,36 @@ def test_enabled_forwarding_preserves_false_value():
     }
 
 
+def test_static_extra_body_none_is_preserved_without_opt_in_omission():
+    body = {"extra_body": {"top_k": None, "n": 3}}
+
+    assert online_replay._build_extra_body(
+        body, omit_none_static_extra=False
+    ) == {"top_k": None, "n": 3}
+
+
+def test_opt_in_omission_drops_only_none_static_extra_body_values():
+    body = {
+        "top_p": 0.8,
+        "extra_body": {"top_k": None, "n": 3, "nullable": None},
+    }
+
+    assert online_replay._build_extra_body(
+        body, omit_none_static_extra=True
+    ) == {"top_p": 0.8, "n": 3}
+
+
+def test_process_log_line_preserves_opt_in_none_omission_policy():
+    job = _job(
+        True,
+        forward=False,
+        extra_body={"top_k": None, "n": 3},
+        omit_none_extra_body=True,
+    )
+
+    assert job.omit_none_extra_body is True
+
+
 def test_send_request_preserves_header_and_uses_sdk_extra_body():
     class Stream:
         def __aiter__(self):
@@ -351,6 +506,40 @@ def test_send_request_preserves_header_and_uses_sdk_extra_body():
     assert result[1] == "OK"
     assert completions.kwargs["extra_headers"]["X-Flow-Conversation-Id"] == "conv-1"
     assert completions.kwargs["extra_body"] == {"enable_kv_evict": True}
+
+
+def test_send_request_omits_none_static_extra_body_only_when_opted_in():
+    class Stream:
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if hasattr(self, "sent"):
+                raise StopAsyncIteration
+            self.sent = True
+            return SimpleNamespace(
+                choices=[],
+                usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1),
+            )
+
+    class Completions:
+        async def create(self, **kwargs):
+            self.kwargs = kwargs
+            return Stream()
+
+    completions = Completions()
+    client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
+    job = _job(
+        True,
+        forward=False,
+        extra_body={"top_k": None, "n": 3},
+        omit_none_extra_body=True,
+    )
+
+    result = asyncio.run(online_replay.send_request(client, job))
+
+    assert result[1] == "OK"
+    assert completions.kwargs["extra_body"] == {"n": 3}
 
 
 def test_forwarding_requires_chat_endpoint():

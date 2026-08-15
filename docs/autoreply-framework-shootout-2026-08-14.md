@@ -1,6 +1,6 @@
 # AutoReply 单卡推理框架调优与决赛
 
-日期：2026-08-14
+日期：2026-08-15
 GPU：NVIDIA GeForce RTX 5090（单卡）
 SLO：客户端 p50 E2E 严格小于 2.0 秒
 
@@ -10,7 +10,7 @@ SLO：客户端 p50 E2E 严格小于 2.0 秒
 - 服务模型名：`kaonai/user-model-afs-sfw-m12-v7.1s1600-nvfp4`
 - 数据集：`datasets/autoreply_prod_dist_repeated_13x.jsonl`，由固定的 1,000 条生产分布样本重复 13 轮，共 13,000 行
 - 对外发布数据集：`/mnt/shared/sss/data/auto-reply-test.json`
-- 请求参数：`n=3`、`max_tokens=50`、`temperature=0.7`、`top_p=0.8`、`frequency_penalty=0.01`、`presence_penalty=0.01`、禁用 `min_p`、`top_k=-1`、`stop=["<|im_end|>"]`
+- 请求参数：`n=3`、`max_tokens=50`、`temperature=0.7`、`top_p=0.8`、`frequency_penalty=0.01`、`presence_penalty=0.01`、禁用 `min_p`、禁用 top-k、`stop=["<|im_end|>"]`。vLLM 线上使用 `top_k=-1`；TensorRT-LLM 省略该字段并使用已验证的默认 `0`，两者语义都是禁用 top-k
 - 模型最大长度固定为 8,192：vLLM 使用 `--max-model-len 8192`，TensorRT-LLM 使用 `--max_seq_len 8192`；该参数不进入搜索空间
 - QPS 统一指客户端发出的 HTTP 请求/秒。因为每个请求固定 `n=3`，服务端序列速率约为外部 QPS 的三倍，不能作为 QPS 结果
 - 每个测试点销毁并重新创建任务容器；任何时刻只运行一个框架实例
@@ -112,13 +112,44 @@ SLO：客户端 p50 E2E 严格小于 2.0 秒
 
 - 1.2.1 成功识别 Mistral、NVFP4 权重与 FP8 KV；内置 Transformers 4.57.3 不认识检查点的 `TokenizersBackend`。兼容适配器直接读取同一 `tokenizer.json`，验证 token ID 与 chat template 完全一致后，服务成功启动。
 - 1.3.0rc22 的 Transformers 5.5.4 可原生加载 tokenizer，模型也成功启动。
-- 两个版本对固定请求都返回 HTTP 400：`require top_k >= 0, got top_k=-1`。
-- TensorRT-LLM 的禁用哨兵是 `top_k=0`，但把固定请求的 `-1` 改为 `0` 会违反实验契约，而且不是启动参数调优。因此兼容性门禁失败，未获准进入 QPS 搜索，也不虚构 TensorRT-LLM 的对比 QPS。
+- 两个版本都拒绝 vLLM 的 `top_k=-1`；literal JSON `null` 也在整数 schema 校验阶段失败。稳定版省略该字段时使用默认 `0`，语义同样是禁用 top-k。
+- replay 新增了默认关闭的 TensorRT 专用适配：规范配置保留 Python `None`，只在线上序列化前省略这个 None 值。vLLM 和普通请求路径不变。真实流式、非流式和 replay 请求都成功，并保持 `n=3` choice indices `0,1,2`，兼容门禁通过。
 - CLI 按约束传入 `--max_seq_len 8192`。稳定版缓存管理器内部日志显示 8193，而 LLM Args 与 CUDA Graph 仍显示 8192；这是内部额外槽位表现，不是本实验调大参数。
+
+## TensorRT-LLM 1.2.1 深度调优
+
+每个候选都冷启动，并在正式轮次前做相同的一轮 3.0 QPS 非计分预热，以
+消除 CUDA Graph/shape 首批建立造成的连接和延迟偏差。搜索覆盖 batch/token
+容量、KV fraction、动态 batch/max-token、调度策略、CUDA Graph padding、
+chunked prefill、sampler、异步 sampler worker、frontend/postprocess、stream
+interval、attention backend 等参数。
+
+基线正式边界为 **5.0 PASS / 5.1 FAIL**。最佳组合为：
+
+- `max_num_tokens=12288` 和 chunked prefill；
+- `TRTLLMSampler` 与 async sampler worker；
+- `MAX_UTILIZATION` capacity scheduler；
+- dynamic batch-size/max-token tuning，moving-average window 128；
+- CUDA Graph padding；
+- KV fraction 保持 0.90，`max_seq_len` 保持 8192。
+
+一级筛选曾在 5.3 QPS 得到 1.9985 秒的临界 PASS，但 12 轮正式复验为
+2.5902 秒 FAIL。5.2 QPS 两次冷启动确认一过一败，也不能算稳定容量。最终
+5.1 QPS 三次独立冷启动确认全部通过：1.7591、1.7580、1.8570 秒；5.2
+相邻点已有失败确认 2.1664 秒。因此 TensorRT-LLM 最终边界为
+**5.1 PASS / 5.2 FAIL**，相对自身基线提升 **+0.1 QPS / +2.0%**。
+
+TensorRT-LLM 该模式的 `/metrics` 返回空 body，无法给出 token 级缓存命中
+计数。最佳配置启动日志确认 `cache_reuse=True`；会关闭复用的 FLASHINFER
+attention 候选已排除，因此没有用不可比配置换取吞吐。完整候选、正式结果和
+启动命令见 `docs/autoreply-trtllm-tuning-2026-08-14.md`。
 
 ## 决赛结论
 
-在“固定请求必须原样被接受”的前提下，唯一可部署并完成严格容量验证的框架是 **vLLM 0.27.1**。TensorRT-LLM 不是因为实测 QPS 更低而落败，而是稳定版与 RC 都未通过固定 API 请求兼容性门禁；因此本报告不提供不公平的跨框架吞吐数字。
+两个框架都完成了语义等价请求、冷启动调优和严格容量验证。vLLM 最佳为
+**9.4 QPS**，TensorRT-LLM 最佳为 **5.1 QPS**。vLLM 多 **4.3 外部 QPS**，
+相对 TensorRT-LLM 高 **84.31%**；反向看 TensorRT-LLM 比 vLLM 低
+**45.74%**。最终框架选择是 **vLLM 0.27.1**。
 
 最佳启动命令：
 
@@ -146,4 +177,9 @@ docker run -d --init --name autoreply-m12-vllm-scheduled4096 \
 
 首选 NVIDIA Model Optimizer EAGLE3：官方训练支持矩阵明确包含 Mistral，并提供在线、离线、流式 hidden-state、草稿词表压缩以及 TensorRT-LLM/SGLang 部署路径。vLLM Speculators 是 vLLM 原生备选，但其当前支持表仍将 Mistral 标为进行中；SpecForge 是 SGLang 原生备选。详细证据、资源估算和 PoC 门禁见 `docs/autoreply-draft-model-framework-research-2026-08-14.md`。
 
-这部分只有可行性结论，没有 QPS 收益结论。未来任何 draft 必须在同一请求与 8,192 长度约束下重新冷启动二分；只有最大 PASS 边界高于 9.4 QPS 才算有收益，并同时报告绝对 QPS 与百分比。
+这部分只有训练可行性结论，没有 QPS 收益结论。特别是实测稳定版
+TensorRT-LLM 1.2.1 的投机验证只支持 greedy sampling，与固定的
+`temperature=0.7`、`top_p=0.8` 不兼容，不能直接启用。未来任何 draft
+必须先通过非贪心正确性门禁，再在同一请求与 8,192 长度约束下重新冷启动
+二分；只有最大 PASS 边界高于 9.4 QPS 才算有收益，并同时报告绝对 QPS
+与百分比。

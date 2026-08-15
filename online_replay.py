@@ -85,13 +85,21 @@ def _resolve_sampling_value(
     return ep_config.get(key)
 
 
-def _build_extra_body(body: dict[str, Any]) -> dict[str, Any]:
+def _build_extra_body(
+    body: dict[str, Any], *, omit_none_static_extra: bool = False
+) -> dict[str, Any]:
     extra_body = {key: body[key] for key in SAMPLING_EXTRA_KEYS if key in body}
     if "enable_kv_evict" in body:
         extra_body["enable_kv_evict"] = body["enable_kv_evict"]
     static = body.get("extra_body")
     if isinstance(static, dict):
-        extra_body.update(static)
+        extra_body.update(
+            {
+                key: value
+                for key, value in static.items()
+                if value is not None or not omit_none_static_extra
+            }
+        )
     return extra_body
 
 
@@ -176,12 +184,22 @@ class ConversationSequencer:
 
 class ReplayJob:
     """Class representing a job to be replayed."""
-    def __init__(self, timestamp: int, url: str, headers: Dict[str, str], body: Dict[str, Any], conversation_id: str, use_chat: bool = True):
+    def __init__(
+        self,
+        timestamp: int,
+        url: str,
+        headers: Dict[str, str],
+        body: Dict[str, Any],
+        conversation_id: str,
+        use_chat: bool = True,
+        omit_none_extra_body: bool = False,
+    ):
         self.timestamp = timestamp
         self.url = url
         self.headers = headers
         self.body = body
         self.use_chat = use_chat
+        self.omit_none_extra_body = omit_none_extra_body
         
         # Round timestamp to seconds for grouping
         self.second_timestamp = timestamp // 1000000000
@@ -405,7 +423,8 @@ def process_log_line(
             headers=headers,
             body=body,
             conversation_id=conversation_id,
-            use_chat=ep_config.get("use_chat", True)  # 使用配置中的use_chat参数
+            use_chat=ep_config.get("use_chat", True),  # 使用配置中的use_chat参数
+            omit_none_extra_body=ep_config.get("omit_none_extra_body", False),
         )
         
         return job
@@ -514,7 +533,10 @@ async def send_request(client, job):
             "X-Flow-Conversation-Id": str(job.conversation_id) if job.conversation_id else "",
             "X-Request-Id": job.request_id  # vllm读取这个字段作为request_id，添加request_id到请求头，用于全链路追踪
         }
-        extra_body = _build_extra_body(job.body)
+        extra_body = _build_extra_body(
+            job.body,
+            omit_none_static_extra=job.omit_none_extra_body,
+        )
 
         if job.use_chat:
             if not job.body.get("messages"):
@@ -1557,6 +1579,7 @@ def main(args, sample_start, sample_end):
             "forward_kv_evict": args.forward_kv_evict,
             "serialize_conversations": args.serialize_conversations,
             "extra_body": args.extra_body_json,
+            "omit_none_extra_body": args.omit_none_extra_body,
         }
         sampling = _resolve_cli_sampling(args)
         min_p_override = sampling.pop("_min_p_override", None)
@@ -1703,6 +1726,14 @@ if __name__ == "__main__":
         default=None,
         help="JSON object merged into every request extra_body "
              "(e.g. '{\"chat_template_kwargs\":{\"thinking\":false},\"reasoning_effort\":\"none\"}')",
+    )
+    parser.add_argument(
+        "--omit-none-extra-body",
+        action="store_true",
+        help=(
+            "Omit None-valued keys from --extra-body-json before HTTP "
+            "serialization (opt-in compatibility adapter)."
+        ),
     )
     parser.add_argument(
         "--serialize-conversations",

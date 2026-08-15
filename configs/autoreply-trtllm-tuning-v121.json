@@ -10,10 +10,12 @@
     {"name":"kv85","family":"kv_cache","hypothesis":"more graph and activation headroom avoids pressure","cli_args":["--kv_cache_free_gpu_memory_fraction","0.85"],"llm_options":{}},
     {"name":"kv95","family":"kv_cache","hypothesis":"larger KV pool supports more inflight sequences","cli_args":["--kv_cache_free_gpu_memory_fraction","0.95"],"llm_options":{}},
     {"name":"chunked-prefill","family":"scheduler","hypothesis":"chunked prefill protects short decode work","cli_args":["--enable_chunked_prefill"],"llm_options":{}},
-    {"name":"overlap-on","family":"scheduler","hypothesis":"overlap host scheduling with GPU execution","cli_args":[],"llm_options":{"pytorch_backend_config":{"enable_overlap_scheduler":true}}},
-    {"name":"overlap-off","family":"scheduler","hypothesis":"control for overlap scheduler contribution","cli_args":[],"llm_options":{"pytorch_backend_config":{"enable_overlap_scheduler":false}}},
-    {"name":"prefix-aware-on","family":"scheduler","hypothesis":"account for n=3 reusable prefixes during admission","cli_args":[],"llm_options":{"scheduler_config":{"enable_prefix_aware_scheduling":true}}},
-    {"name":"prefix-aware-off","family":"scheduler","hypothesis":"control for prefix-aware admission","cli_args":[],"llm_options":{"scheduler_config":{"enable_prefix_aware_scheduling":false}}},
+    {"name":"overlap-on","family":"scheduler","hypothesis":"explicitly retain the default overlap scheduler","cli_args":[],"llm_options":{"disable_overlap_scheduler":false}},
+    {"name":"overlap-off","family":"scheduler","hypothesis":"control for overlap scheduler contribution","cli_args":[],"llm_options":{"disable_overlap_scheduler":true}},
+    {"name":"dynamic-token-on","family":"scheduler","hypothesis":"dynamically tune both batch size and max token budget for long prompts","cli_args":[],"llm_options":{"scheduler_config":{"dynamic_batch_config":{"enable_batch_size_tuning":true,"enable_max_num_tokens_tuning":true,"dynamic_batch_moving_average_window":128}}}},
+    {"name":"dynamic-batch-off","family":"scheduler","hypothesis":"fixed limits may avoid unstable dynamic admission near the capacity wall","cli_args":[],"llm_options":{"scheduler_config":{"dynamic_batch_config":{"enable_batch_size_tuning":false,"enable_max_num_tokens_tuning":false,"dynamic_batch_moving_average_window":128}}}},
+    {"name":"dynamic-window32","family":"scheduler","hypothesis":"a shorter moving average adapts faster to the production prompt distribution","cli_args":[],"llm_options":{"scheduler_config":{"dynamic_batch_config":{"enable_batch_size_tuning":true,"enable_max_num_tokens_tuning":false,"dynamic_batch_moving_average_window":32}}}},
+    {"name":"max-utilization","family":"scheduler","hypothesis":"permit eviction-aware maximum-utilization admission to improve packing","cli_args":[],"llm_options":{"scheduler_config":{"capacity_scheduler_policy":"MAX_UTILIZATION","dynamic_batch_config":{"enable_batch_size_tuning":true,"enable_max_num_tokens_tuning":false,"dynamic_batch_moving_average_window":128}}}},
     {"name":"block-reuse-off","family":"kv_cache","hypothesis":"control verifies within-request reuse contribution","cli_args":[],"llm_options":{"kv_cache_config":{"enable_block_reuse":false,"dtype":"fp8"}}},
     {"name":"partial-reuse-off","family":"kv_cache","hypothesis":"full-block-only reuse may reduce bookkeeping","cli_args":[],"llm_options":{"kv_cache_config":{"enable_partial_reuse":false,"dtype":"fp8"}}},
     {"name":"graphs-padding","family":"cuda_graph","hypothesis":"padding expands CUDA Graph hit coverage","cli_args":[],"llm_options":{"cuda_graph_config":{"enable_padding":true}}},
@@ -21,7 +23,12 @@
     {"name":"graphs-batches192","family":"cuda_graph","hypothesis":"capture larger n=3 sequence batches","cli_args":[],"llm_options":{"cuda_graph_config":{"enable_padding":true,"batch_sizes":[1,2,4,8,16,32,48,64,96,128,160,192]}}},
     {"name":"postprocess1","family":"frontend","hypothesis":"one postprocess worker removes detokenization stalls","cli_args":["--num_postprocess_workers","1"],"llm_options":{}},
     {"name":"postprocess2","family":"frontend","hypothesis":"two postprocess workers feed three-choice responses","cli_args":["--num_postprocess_workers","2"],"llm_options":{}},
-    {"name":"iter-stats-off","family":"observability","hypothesis":"disable iteration statistics in performance runs","cli_args":[],"llm_options":{"pytorch_backend_config":{"enable_iter_perf_stats":false}}},
-    {"name":"iter-stats-10","family":"observability","hypothesis":"lower metric collection cadence reduces host overhead","cli_args":[],"llm_options":{"kv_cache_config":{"iteration_stats_interval":10,"dtype":"fp8"}}}
+    {"name":"stream-interval5","family":"frontend","hypothesis":"coalesce streaming responses to reduce three-choice frontend overhead","cli_args":[],"llm_options":{"stream_interval":5}},
+    {"name":"stream-interval10","family":"frontend","hypothesis":"more aggressive response coalescing reduces frontend overhead","cli_args":[],"llm_options":{"stream_interval":10}},
+    {"name":"sampler-trtllm","family":"sampler","hypothesis":"use the fused TensorRT-LLM sampler instead of the auto-selected Torch sampler","cli_args":[],"llm_options":{"sampler_type":"TRTLLMSampler"}},
+    {"name":"batch-wait-1ms","family":"scheduler","hypothesis":"briefly accumulate requests for denser GPU batches","cli_args":[],"llm_options":{"batch_wait_timeout_ms":1.0}},
+    {"name":"iter-stats-off","family":"observability","hypothesis":"explicitly retain disabled iteration statistics","cli_args":[],"llm_options":{"enable_iter_perf_stats":false}},
+    {"name":"nvfp4-cutlass","family":"kernel","hypothesis":"force CUTLASS for all NVFP4 GEMMs","cli_args":[],"llm_options":{"nvfp4_gemm_config":{"allowed_backends":["cutlass"]}}},
+    {"name":"nvfp4-cublaslt","family":"kernel","hypothesis":"force cuBLASLt for all NVFP4 GEMMs","cli_args":[],"llm_options":{"nvfp4_gemm_config":{"allowed_backends":["cublaslt"]}}}
   ]
 }

@@ -1,6 +1,6 @@
 # AutoReply Draft-Model Training Framework Research
 
-Date: 2026-08-14
+Date: 2026-08-15
 
 ## Recommendation
 
@@ -41,7 +41,7 @@ source checkpoint for a production draft-training project.
 |---|---|---|---|---|
 | NVIDIA Model Optimizer | Confirmed in its EAGLE3 support matrix | Online HF Trainer; offline hidden states via HF or TensorRT-LLM; streaming from vLLM; distributed/context parallel | Documented TensorRT-LLM and SGLang modules | Primary recommendation |
 | vLLM Speculators | Architecture-generic EAGLE3, but its table still marks Mistral training/deployment in progress | Online/offline hidden states via vLLM; single GPU, DDP and FSDP; reduced draft vocabulary | Native Hugging Face-compatible checkpoint loaded directly by vLLM | Best vLLM-native fallback; custom Mistral gate required |
-| SpecForge | Plausible but this exact custom Mistral checkpoint is unvalidated | Online/offline, tensor parallel, FSDP | Native SGLang integration | Strong SGLang-first fallback |
+| SpecForge | Plausible but this exact custom Mistral checkpoint is unvalidated | Online/offline/disaggregated; data, tensor, and sequence parallel topologies | Native SGLang integration | Strong SGLang-first fallback |
 | SafeAILab EAGLE | Possible with custom model integration | Reference EAGLE/EAGLE3 scripts and DeepSpeed | Multiple runtimes implement EAGLE, but custom models require adapting model code/KV-cache handling | Reference implementation, higher engineering cost |
 | Medusa/MTP variants | Medusa is supported by ModelOpt; native MTP is not present in this Mistral checkpoint | Add/train heads or architecture-coupled MTP modules | Runtime support differs by framework | Not preferred over EAGLE3 for this target |
 
@@ -49,6 +49,23 @@ Primary evidence: [ModelOpt speculative training example](https://github.com/NVI
 [vLLM Speculators documentation](https://docs.vllm.ai/projects/speculators/en/stable/),
 [SpecForge](https://github.com/sgl-project/SpecForge), and the
 [official EAGLE implementation](https://github.com/SafeAILab/EAGLE).
+
+## Runtime gate for this exact workload
+
+Training feasibility does not imply that the resulting draft can be used in
+the benchmarked runtime. The pinned TensorRT-LLM 1.2.1 documentation says its
+PyTorch speculative-decoding verifier currently supports **greedy sampling
+only**. This workload is non-greedy (`temperature=0.7`, `top_p=0.8`) and those
+request parameters are immutable. Therefore an EAGLE3 draft must not be added
+to the TensorRT-LLM 1.2.1 winner command or credited with any QPS gain.
+
+The same 1.2.1 documentation lists two-model EAGLE3 only for selected Llama
+models, while generic draft/target decoding is listed for all models. A custom
+Mistral EAGLE3 checkpoint therefore needs an explicit load-and-correctness gate
+even under greedy sampling. Newer TensorRT-LLM source has added rejection-
+sampling paths, but that is not evidence that the tested stable 1.2.1 image
+supports this fixed request. See the
+[TensorRT-LLM 1.2.1 speculative-decoding documentation](https://github.com/NVIDIA/TensorRT-LLM/blob/v1.2.1/docs/source/features/speculative-decoding.md).
 
 ## Why Model Optimizer fits best
 
@@ -103,9 +120,9 @@ small end-to-end smoke run validates extraction, loss, export, and loading.
 
 ## Serving compatibility and risks
 
-- TensorRT-LLM documents EAGLE3 linear and dynamic-tree execution. For this
-  non-greedy workload, exact rejection-sampling behavior must be enabled and
-  validated; an argmax-only shortcut is not equivalent.
+- TensorRT-LLM 1.2.1 documents only greedy verification for speculative
+  decoding. That is incompatible with this fixed non-greedy workload; an
+  argmax-only shortcut is not equivalent.
 - SGLang has the clearest SpecForge-to-runtime path.
 - ModelOpt documents deployable speculation modules for TensorRT-LLM and
   SGLang. For vLLM, Speculators offers a direct training and serving path, and
@@ -149,7 +166,10 @@ small end-to-end smoke run validates extraction, loss, export, and loading.
   reduced-vocabulary training, FSDP, external-checkpoint conversion, and direct
   vLLM serving; its support table marks Mistral as in progress.
 - **Confirmed:** SpecForge is maintained and SGLang-oriented, with
-  online/offline, tensor-parallel, and FSDP training advertised by the project.
+  online/offline/disaggregated training and distributed data/tensor/sequence
+  topologies advertised by the project.
+- **Confirmed:** TensorRT-LLM 1.2.1 speculative decoding is greedy-only and its
+  documented two-model EAGLE3 support list does not include Mistral.
 - **Inferred:** This custom Mistral configuration should fit ModelOpt's generic
   Mistral path because it uses standard dense Mistral fields and no sliding
   window. A smoke test is still required.

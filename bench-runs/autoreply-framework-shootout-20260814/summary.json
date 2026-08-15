@@ -54,10 +54,48 @@
   },
   "tensorrt_llm": {
     "stable_image": "nvcr.io/nvidia/tensorrt-llm/release:1.2.1",
+    "stable_image_digest": "sha256:33cd085b772947bd22b7273886539331420404e5d2a4a039945241945ff927b9",
     "rc_fallback_image": "nvcr.io/nvidia/tensorrt-llm/release:1.3.0rc22",
-    "status": "INCOMPATIBLE_WITH_FIXED_REQUEST",
-    "qps_search_permitted": false,
-    "reason": "Both images reject the immutable top_k=-1 request with HTTP 400."
+    "status": "COMPLETE",
+    "disabled_top_k_wire_mapping": {
+      "canonical_python_value": null,
+      "wire_field_omitted": true,
+      "server_default": 0,
+      "negative_one_status": 400,
+      "literal_null_status": 400,
+      "omitted_status": 200
+    },
+    "baseline": {
+      "best_pass_qps": 5.0,
+      "adjacent_fail_qps": 5.1,
+      "pass_p50_e2e_s": 1.5038745380782832,
+      "fail_p50_e2e_s": 2.0490369491744787
+    },
+    "winner": {
+      "candidate": "winner-async-sampler",
+      "best_pass_qps": 5.1,
+      "adjacent_fail_qps": 5.2,
+      "absolute_qps_gain": 0.1,
+      "relative_percent_gain": 2.0,
+      "confirmation_p50_e2e_s": [
+        1.759106599104901,
+        1.7579817071867485,
+        1.8570380952054013
+      ],
+      "adjacent_fail_p50_e2e_s": 2.166402974204781,
+      "additional_cli_args": [
+        "--max_num_tokens",
+        "12288",
+        "--enable_chunked_prefill"
+      ],
+      "cache_reuse_startup_log": true,
+      "prefix_cache_metric_available": false
+    },
+    "versus_vllm": {
+      "absolute_qps_delta": -4.3,
+      "relative_percent_lower": 45.74,
+      "vllm_relative_percent_higher": 84.31
+    }
   },
   "draft_training_research": {
     "primary": "NVIDIA Model Optimizer EAGLE3",

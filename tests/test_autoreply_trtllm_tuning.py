@@ -85,6 +85,21 @@ def test_candidate_cannot_override_fixed_max_sequence_length(tmp_path):
         tuning.load_candidates(path)
 
 
+def test_server_command_emits_cli_override_only_once():
+    candidate = tuning.Candidate(
+        name="winner",
+        family="token_capacity",
+        cli_args=("--max_num_tokens", "12288", "--enable_chunked_prefill"),
+        llm_options={},
+        hypothesis="winner command must be unambiguous",
+    )
+
+    command = tuning.build_server_command(candidate)
+
+    assert command.count("--max_num_tokens") == 1
+    assert command[command.index("--max_num_tokens") + 1] == "12288"
+
+
 def test_help_inventory_extracts_and_explicitly_classifies_flags():
     flags = tuning.extract_flags(
         "usage: trtllm-serve [--backend NAME] [--max_seq_len N] "
@@ -106,9 +121,7 @@ def test_help_inventory_extracts_and_explicitly_classifies_flags():
     assert all(row["reason"] for row in rows)
 
 
-def test_trtllm_reuses_the_exact_fixed_replay_builder(tmp_path):
-    assert tuning.build_replay_command is vllm_tuning.build_replay_command
-
+def test_trtllm_replay_builder_uses_none_omission_for_disabled_top_k(tmp_path):
     command = tuning.build_replay_command(
         qps=9.4,
         rounds=12,
@@ -118,10 +131,14 @@ def test_trtllm_reuses_the_exact_fixed_replay_builder(tmp_path):
     assert command[command.index("--max-tokens") + 1] == "50"
     assert command[command.index("--temperature") + 1] == "0.7"
     assert command[command.index("--top-p") + 1] == "0.8"
+    assert command[command.index("--frequency-penalty") + 1] == "0.01"
+    assert command[command.index("--presence-penalty") + 1] == "0.01"
+    assert "--disable-min-p" in command
+    assert "--omit-none-extra-body" in command
     assert json.loads(command[command.index("--extra-body-json") + 1]) == {
         "n": 3,
         "stop": ["<|im_end|>"],
-        "top_k": -1,
+        "top_k": None,
     }
 
 
@@ -130,3 +147,32 @@ def test_trtllm_container_ownership_is_exact():
     assert tuning.is_owned_container("autoreply-m12-trtllm-") is False
     assert tuning.is_owned_container("autoreply-m12-vllm-baseline") is False
     assert tuning.is_owned_container("minio_test") is False
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected", "contains_top_k"),
+    [
+        ("negative-one", -1, True),
+        ("null", None, True),
+        ("omit", None, False),
+    ],
+)
+def test_compatibility_payload_changes_only_top_k_wire_shape(
+    mode, expected, contains_top_k
+):
+    payload = tuning.build_compatibility_payload(top_k_mode=mode, stream=False)
+
+    assert ("top_k" in payload) is contains_top_k
+    assert payload.get("top_k") is expected
+    assert payload["n"] == 3
+    assert payload["max_tokens"] == 50
+    assert payload["temperature"] == 0.7
+    assert payload["top_p"] == 0.8
+    assert payload["frequency_penalty"] == 0.01
+    assert payload["presence_penalty"] == 0.01
+    assert payload["stop"] == ["<|im_end|>"]
+
+
+def test_compatibility_payload_rejects_unknown_top_k_mode():
+    with pytest.raises(ValueError, match="top_k mode"):
+        tuning.build_compatibility_payload(top_k_mode="zero", stream=False)
