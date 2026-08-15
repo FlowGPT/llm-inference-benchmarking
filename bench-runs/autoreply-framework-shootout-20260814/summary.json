@@ -52,6 +52,64 @@
       }
     ]
   },
+  "sglang": {
+    "image": "lmsysorg/sglang:v0.5.17",
+    "image_digest": "sha256:16aba8925507e631e1dc1e23d95d026533602591775f6a8db68b74ee99746155",
+    "compatibility": {
+      "model_architecture": "MistralForCausalLM",
+      "quantization": "ModelOpt NVFP4 with FP8 KV cache",
+      "required_environment": {
+        "SGLANG_ENABLE_WEIGHT_LOADER_V2": "1"
+      },
+      "legacy_loader_status": "INVALID_OUTPUT",
+      "loader_v2_status": "PASS"
+    },
+    "baseline": {
+      "best_pass_qps": 6.5,
+      "adjacent_fail_qps": 6.6,
+      "pass_p50_e2e_s": 0.6874530695689222,
+      "fail_p50_e2e_s": 2.5813663001172245,
+      "rounds": 12,
+      "tail_window": 6
+    },
+    "winner": {
+      "best_pass_qps": 8.1,
+      "adjacent_unstable_qps": 8.2,
+      "absolute_qps_gain": 1.6,
+      "relative_percent_gain": 24.62,
+      "confirmation_p50_e2e_s": [
+        1.6910433671437204,
+        1.7099613257062931,
+        1.7015429651364684
+      ],
+      "adjacent_8p2_p50_e2e_s": [
+        1.9642297892132774,
+        2.8088667349268994
+      ],
+      "additional_cli_args": [
+        "--mem-fraction-static", "0.84",
+        "--schedule-policy", "lpm",
+        "--cuda-graph-max-bs", "144",
+        "--page-size", "16",
+        "--stream-interval", "5"
+      ]
+    },
+    "versus_vllm": {
+      "absolute_qps_delta": -1.3,
+      "relative_percent_lower": 13.83
+    },
+    "versus_tensorrt_llm": {
+      "absolute_qps_delta": 3.0,
+      "relative_percent_higher": 58.82
+    },
+    "prefix_cache_observation": {
+      "vllm_hit_rate": 0.664479719977065,
+      "vllm_hits": 11112608,
+      "vllm_queries": 16723773,
+      "explanation": "n=3: one branch establishes prompt KV and two branches reuse it; block-alignment tails reduce 2/3 to about 66.45%",
+      "sglang_metric_semantics": "sglang:cache_hit_rate is an instantaneous per-batch gauge and is not directly comparable to vLLM cumulative counters"
+    }
+  },
   "tensorrt_llm": {
     "stable_image": "nvcr.io/nvidia/tensorrt-llm/release:1.2.1",
     "stable_image_digest": "sha256:33cd085b772947bd22b7273886539331420404e5d2a4a039945241945ff927b9",

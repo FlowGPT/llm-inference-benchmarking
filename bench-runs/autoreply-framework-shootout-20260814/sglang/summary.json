@@ -1,0 +1,78 @@
+{
+  "framework": "SGLang",
+  "image": "lmsysorg/sglang:v0.5.17",
+  "image_digest": "sha256:16aba8925507e631e1dc1e23d95d026533602591775f6a8db68b74ee99746155",
+  "hardware": {
+    "gpu": "NVIDIA GeForce RTX 5090",
+    "gpu_memory_mib": 32607,
+    "driver": "580.173.02"
+  },
+  "fixed_protocol": {
+    "qps_unit": "HTTP requests/s",
+    "n": 3,
+    "max_tokens": 50,
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "top_k": -1,
+    "frequency_penalty": 0.01,
+    "presence_penalty": 0.01,
+    "stop": ["<|im_end|>"],
+    "context_length": 8192,
+    "slo": "tail-window mean of per-round p50 E2E latency < 2s"
+  },
+  "correctness_gate": {
+    "legacy_mistral_loader": "FAIL: syntactically successful load but gibberish output",
+    "loader_v2": "PASS: coherent short and production-shaped prompts",
+    "required_environment": "SGLANG_ENABLE_WEIGHT_LOADER_V2=1"
+  },
+  "baseline": {
+    "launch_overrides": [
+      "--mem-fraction-static", "0.82",
+      "--schedule-policy", "fcfs"
+    ],
+    "best_pass_qps": 6.5,
+    "pass_p50_e2e_s": 0.6874530695689222,
+    "adjacent_fail_qps": 6.6,
+    "fail_p50_e2e_s": 2.5813663001172245
+  },
+  "winner": {
+    "launch_overrides": [
+      "--mem-fraction-static", "0.84",
+      "--schedule-policy", "lpm",
+      "--cuda-graph-max-bs", "144",
+      "--page-size", "16",
+      "--stream-interval", "5"
+    ],
+    "best_pass_qps": 8.1,
+    "confirmation_p50_e2e_s": [
+      1.6910433671437204,
+      1.7099613257062931,
+      1.7015429651364684
+    ],
+    "adjacent_unstable_qps": 8.2,
+    "adjacent_p50_e2e_s": [
+      1.9642297892132774,
+      2.8088667349268994
+    ],
+    "absolute_qps_gain": 1.6,
+    "relative_percent_gain": 24.62
+  },
+  "high_value_search_results": [
+    {"change": "cuda graph max batch 24 -> 80", "qps": 7.0, "result": "PASS", "p50_e2e_s": 0.86643},
+    {"change": "cuda graph max batch 144", "qps": 8.2, "result": "PASS-screen", "p50_e2e_s": 1.92944},
+    {"change": "cuda graph max batch 192", "qps": 8.2, "result": "PASS-screen", "p50_e2e_s": 1.97252},
+    {"change": "page size 16", "qps": 8.2, "result": "PASS-screen", "p50_e2e_s": 1.82529},
+    {"change": "page size 32", "qps": 8.2, "result": "FAIL", "p50_e2e_s": 14.16},
+    {"change": "mem fraction static 0.84", "qps": 8.2, "result": "PASS-screen", "p50_e2e_s": 1.80874},
+    {"change": "schedule policy lpm", "qps": 8.3, "result": "PASS-short-only", "p50_e2e_s": 1.95824},
+    {"change": "enable mixed chunk", "qps": 8.3, "result": "FAIL-overload"},
+    {"change": "chunked prefill size 1024 or 4096", "qps": 8.2, "result": "FAIL-overload"}
+  ],
+  "prefix_cache": {
+    "expected_vllm_rate": 0.664479719977065,
+    "vllm_hits": 11112608,
+    "vllm_queries": 16723773,
+    "reason": "With n=3, the first branch creates prompt KV and the other two reuse it. Block tails explain the small gap below 2/3.",
+    "sglang_metric_note": "sglang:cache_hit_rate is a per-batch gauge, so a single scrape is not an aggregate cross-framework metric."
+  }
+}
