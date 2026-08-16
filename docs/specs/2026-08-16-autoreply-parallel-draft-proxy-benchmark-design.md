@@ -73,6 +73,10 @@ length and finish-reason drift and be labelled as a cost proxy.
   dimensions, a valid mask token, auxiliary target-layer selection, and all
   required projection and normalization weights.
 - Keep the algorithm's native masked parallel block behavior.
+- Use five draft layers. Public DFlash checkpoints commonly use five or more
+  layers, and the public Qwen3.5 27B configuration with the same 5120 hidden
+  size uses five. Select target auxiliary layers `[1, 20, 39]` and use a
+  three-token parallel block for the direct K=3 workload comparison.
 - Prefer the smallest native block that exercises the parallel path and permits
   comparison with the workload. Do not call a causal or bypass implementation
   DFlash merely to make it launch.
@@ -85,6 +89,9 @@ length and finish-reason drift and be labelled as a cost proxy.
   Mistral target.
 - Include the DFlash-style backbone, Markov correction head, required mappings,
   and block metadata.
+- Use five draft layers, five target auxiliary states, and Markov rank 256,
+  matching the released `deepseek-ai/dspark_qwen3_8b_block7` reference
+  architecture while retaining this target's tensor dimensions.
 - Use the checkpoint's native block size, initially seven tokens. vLLM forbids
   a speculative length smaller than the DSpark block because it produces an
   unsupported layout and incorrect output.

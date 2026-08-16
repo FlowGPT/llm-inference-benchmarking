@@ -146,7 +146,7 @@ git commit -m "test: define parallel draft proxy specifications"
 
 ### Steps
 
-- [ ] Add failing tests for tensor-source rules. Large vocabulary embeddings and
+- [x] Add failing tests for tensor-source rules. Large vocabulary embeddings and
   compatible transformer weights must reuse the classic-EAGLE donor; new
   method-specific tensors use deterministic zero initialization. Each manifest
   entry records `name`, `shape`, `dtype`, `source`, and `nbytes`.
@@ -160,18 +160,18 @@ def test_manifest_accounts_for_every_tensor_byte(tmp_path):
     }
 ```
 
-- [ ] Run the focused tests; expected FAIL because `build_manifest` is absent.
+- [x] Run the focused tests; expected FAIL because `build_manifest` is absent.
 
-- [ ] Implement safetensors header inspection without loading donor tensors,
+- [x] Implement safetensors header inspection without loading donor tensors,
   shape validation, deterministic tensor generation, temporary-file output,
   `fsync`, and atomic rename. Never overwrite a nonempty checkpoint unless
   `--force` targets that exact method directory.
 
-- [ ] Keep optional shared embeddings/LM heads out of DFlash/DSpark only when
+- [x] Keep optional shared embeddings/LM heads out of DFlash/DSpark only when
   the native loader explicitly aliases them from the target. EAGLE3 includes
   every tensor its loader does not skip.
 
-- [ ] Run the builder inside the exact vLLM container so PyTorch and
+- [x] Run the builder inside the exact vLLM container so PyTorch and
   safetensors versions match runtime:
 
 ```bash
@@ -187,10 +187,10 @@ docker run --rm --gpus all --ipc=host \
 Expected: three `config.json`, `model.safetensors`, and
 `tensor-manifest.json` sets; process exits zero.
 
-- [ ] Validate every safetensors header in a fresh container and require all
+- [x] Validate every safetensors header in a fresh container and require all
   byte ranges to end exactly at file size.
 
-- [ ] Commit only the builder, tests, and compact tensor manifests; exclude
+- [x] Commit only the builder, tests, and compact tensor manifests; exclude
   generated `model.safetensors` files.
 
 ## Task 3: Add a resumable experiment controller
