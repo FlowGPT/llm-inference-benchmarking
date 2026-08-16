@@ -5,17 +5,18 @@ Date: 2026-08-16
 ## Verdict
 
 N-gram speculative decoding does **not** improve this workload on the tested
-vLLM 0.27.1 / RTX 5090 stack. The best reproducible n-gram configuration is
-the CPU proposer with one speculative token and an exact five-token lookup
-window:
+vLLM 0.27.1 / RTX 5090 stack. A follow-up window sweep improved the best
+reproducible n-gram configuration to the CPU proposer with one speculative
+token and an exact seven-token lookup window:
 
 ```text
---speculative-config '{"method":"ngram","num_speculative_tokens":1,"prompt_lookup_min":5,"prompt_lookup_max":5}'
+--speculative-config '{"method":"ngram","num_speculative_tokens":1,"prompt_lookup_min":7,"prompt_lookup_max":7}'
 ```
 
-Its stable p50-E2E-<2s boundary is **9.0 HTTP QPS**, versus **9.5 HTTP QPS**
-without speculative decoding: **-0.5 QPS / -5.26%**. All HTTP requests retain
-`n=3`, so 9.0 HTTP QPS creates about 27 sampled sequences per second.
+Its stable p50-E2E-<2s boundary is **9.2 HTTP QPS**, versus **9.5 HTTP QPS**
+without speculative decoding: **-0.3 QPS / -3.16%**. This is **+0.2 QPS /
++2.22%** over the initial five-token n-gram result. All HTTP requests retain
+`n=3`, so 9.2 HTTP QPS creates about 27.6 sampled sequences per second.
 
 ## Fixed workload
 
@@ -48,6 +49,10 @@ the requests required during each 30-second window.
 | CPU n-gram, K=2, min=5, max=5 | 3.334s | 693 | 412 | 59.45% | 54 | fail |
 | CPU n-gram, K=3, min=5, max=5 | 2.301s | 1,018 | 549 | 53.93% | 54 | fail |
 | CPU K=1, min=max=5, FlashAttention + BF16 KV | 7.206s | 503 | 348 | 69.18% | 54 | fail |
+| GPU n-gram, K=1, min=max=5 | 2.475s | 15,517 cumulative | 333 cumulative | 2.15% cumulative | 55 | fail |
+| CPU n-gram, K=1, min=max=4 | 2.990s | 847 cumulative | 522 cumulative | 61.63% cumulative | 53 | fail |
+| CPU n-gram, K=1, min=max=6 | 2.208s | 306 cumulative | 231 cumulative | 75.49% cumulative | 54 | fail |
+| **CPU n-gram, K=1, min=max=7** | **2.198s** | 219 cumulative | 183 cumulative | 83.56% cumulative | 53 | **follow-up winner; boundary tested below** |
 
 Every measured candidate completed with 100% request success. Output length
 remained 53-55 tokens per HTTP request, matching the non-speculative baseline
@@ -61,46 +66,50 @@ Two additional launch-only candidates were rejected before measurement:
 - FlashAttention with FP8 KV on RTX 5090: vLLM rejects it because this path
   requires FA3 on SM90 or FA4 on SM100. Explicit BF16 KV launched and retained
   full CUDA graphs, but was much slower as shown above.
+- GPU n-gram with dynamic K (`K=1` for batches 1-16, `K=0` for 17-96)
+  launched and passed low-QPS warmup, but EngineCore crashed as the 9.5-QPS
+  batch crossed the schedule boundary. Success was only 7.02%, so this v0.27.1
+  combination is not deployable.
 
 ## Boundary and confirmations
 
 | HTTP QPS | p50 E2E observations | Verdict |
 |---:|---|---|
-| 9.5 | 2.266s (winner screen) | fail |
-| 9.3 | 2.124s | fail |
-| 9.2 | probe 1.988s; confirmations 2.013 / 3.178 / 2.169s | unstable/fail |
+| 9.5 | 2.198s (seven-token follow-up screen) | fail |
+| 9.3 | **2.101s** (seven-token adjacent check) | fail |
+| **9.2** | seven-token confirmations **1.923 / 1.902 / 1.903s** | **stable pass** |
 | 9.1 | confirmations 1.983 / 1.958 / 2.029s | unstable/fail |
-| **9.0** | probe 1.567s; confirmations **1.793 / 1.826 / 1.841s** | **stable pass** |
+| 9.0 | five-token confirmations 1.793 / 1.826 / 1.841s | pass; superseded |
 
-The three 9.0 confirmations all achieved 100% success. Their mean p50 was
-1.820s. The non-speculative reference remains 9.5 QPS with three p50s of
+The three 9.2 confirmations all achieved 100% success. Their mean p50 was
+1.909s. The non-speculative reference remains 9.5 QPS with three p50s of
 1.972 / 1.917 / 1.890s; its adjacent 9.6-QPS check failed at 2.124s.
 
 ## Acceptance, coverage, and prefix cache
 
-Across the three winning 9.0-QPS confirmations:
+Across the three winning 9.2-QPS confirmations:
 
-- output tokens: 44,218
-- draft opportunities emitted: 1,575
-- draft tokens: 1,575
-- accepted draft tokens: 1,138
-- conditional acceptance: **72.254%**
-- estimated target verification cycles: `44,218 - 1,138 = 43,080`
-- proposal coverage: `1,575 / 43,080 = 3.656%`
-- accepted drafts as a share of output: `1,138 / 44,218 = 2.574%`
-- effective tokens committed per target cycle: `44,218 / 43,080 = 1.0264`
-- prefix-cache hit rate: **66.448%**
+- output tokens: 44,875
+- draft opportunities emitted: 796
+- draft tokens: 796
+- accepted draft tokens: 680
+- conditional acceptance: **85.427%**
+- estimated target verification cycles: `44,875 - 680 = 44,195`
+- proposal coverage: `796 / 44,195 = 1.801%`
+- accepted drafts as a share of output: `680 / 44,875 = 1.515%`
+- effective tokens committed per target cycle: `44,875 / 44,195 = 1.0154`
+- steady-state prefix-cache hit rate: **66.449%**
 
-The 66.448% prefix hit is the expected `n=3` same-request branch reuse, not
+The 66.449% prefix hit is the expected `n=3` same-request branch reuse, not
 multi-turn history reuse: the first child computes/populates the prompt and
 the other two children reuse it. It aligns with the production observation of
 66%-67%. Once the three sampled outputs diverge, their decode state cannot be
 shared.
 
-The apparently high 72.254% n-gram acceptance is therefore misleading in
-isolation. Exact five-token matches occur on only about 3.66% of target cycles;
-the other 96%+ receive no draft. The feature saves only about 2.57% of output
-token steps before its runtime overheads are counted.
+The apparently high 85.427% n-gram acceptance is therefore misleading in
+isolation. Exact seven-token matches occur on only about 1.80% of target
+cycles; the other 98%+ receive no draft. The feature saves only about 1.52% of
+output token steps before its runtime overheads are counted.
 
 ## Why it loses
 
@@ -154,11 +163,11 @@ docker run -d --rm --init --name autoreply-ngram-final \
   --max-num-scheduled-tokens 3072 \
   --compilation-config '{"mode":3,"cudagraph_capture_sizes":[1,2,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,48,51,54,57,60,63,66,69,72,75,78,81,84,87,90,93,96,99,102,105,108,111,114,117,120,123,126,129,132,135,138,141,144,147,150,153,156,159,162,165,168,171,174,177,180,183,186,189,192],"max_cudagraph_capture_size":192}' \
   --disable-uvicorn-access-log \
-  --speculative-config '{"method":"ngram","num_speculative_tokens":1,"prompt_lookup_min":5,"prompt_lookup_max":5}'
+  --speculative-config '{"method":"ngram","num_speculative_tokens":1,"prompt_lookup_min":7,"prompt_lookup_max":7}'
 ```
 
 This command is the best n-gram command, but it should **not** replace the
-production no-spec command: the latter sustains 9.5 rather than 9.0 HTTP QPS.
+production no-spec command: the latter sustains 9.5 rather than 9.2 HTTP QPS.
 
 ## Artifact map
 
@@ -168,7 +177,10 @@ production no-spec command: the latter sustains 9.5 rather than 9.0 HTTP QPS.
 - `final/cpu-k1-min5-max5/confirmations/`: three-run confirmation sets for
   9.2, 9.1, and 9.0 QPS.
 - `final/cpu-k1-min5-max5/container-inspect.json`: exact live winner container.
+- `tuning-round-2/`: strict-window/GPU/dynamic-K follow-up candidates and the
+  seven-token 9.2-QPS confirmation set.
 - `manifest/health-check.json`: preflight details including the PCIe warning.
 
 The final n-gram container was intentionally left running as
-`autoreply-ngram-final` on port 8080, following the benchmark lifecycle policy.
+`autoreply-ngram-cpu7-boundary` on port 8080, following the benchmark lifecycle
+policy.

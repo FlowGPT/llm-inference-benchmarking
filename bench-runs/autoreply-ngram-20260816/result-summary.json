@@ -18,31 +18,33 @@
   "max_model_len": 8192,
   "slo_p50_e2e_seconds": 2.0,
   "baseline_max_stable_http_qps": 9.5,
-  "ngram_max_stable_http_qps": 9.0,
-  "delta_http_qps": -0.5,
-  "delta_percent": -5.263157894736842,
+  "ngram_max_stable_http_qps": 9.2,
+  "delta_http_qps": -0.3,
+  "delta_percent": -3.1578947368421053,
+  "improvement_over_initial_ngram_http_qps": 0.2,
+  "improvement_over_initial_ngram_percent": 2.2222222222222223,
   "winner": {
     "method": "ngram",
     "proposer": "cpu",
     "num_speculative_tokens": 1,
-    "prompt_lookup_min": 5,
-    "prompt_lookup_max": 5,
+    "prompt_lookup_min": 7,
+    "prompt_lookup_max": 7,
     "confirmations_p50_seconds": [
-      1.7927216980606318,
-      1.8264041382353753,
-      1.8405216212850064
+      1.9228047595825046,
+      1.9022103992756456,
+      1.9028226807713509
     ],
-    "mean_confirmation_p50_seconds": 1.8198824858603377,
+    "mean_confirmation_p50_seconds": 1.9092792798765003,
     "success_rate_percent": 100.0,
-    "draft_tokens": 1575,
-    "accepted_draft_tokens": 1138,
-    "conditional_acceptance_percent": 72.25396825396825,
-    "output_tokens": 44218,
-    "estimated_target_cycles": 43080,
-    "proposal_coverage_percent": 3.6559888579387185,
-    "accepted_share_of_output_percent": 2.573612556877289,
-    "effective_tokens_per_target_cycle": 1.0264159702878366,
-    "prefix_cache_hit_percent": 66.44830202150922
+    "draft_tokens": 796,
+    "accepted_draft_tokens": 680,
+    "conditional_acceptance_percent": 85.42713567839196,
+    "output_tokens": 44875,
+    "estimated_target_cycles": 44195,
+    "proposal_coverage_percent": 1.8011087227061886,
+    "accepted_share_of_output_percent": 1.5153203342618384,
+    "effective_tokens_per_target_cycle": 1.0153863559226157,
+    "prefix_cache_hit_percent": 66.44944871834122
   },
   "adjacent": {
     "qps_9_1_p50_seconds": [
@@ -55,7 +57,12 @@
       3.177921603200957,
       2.1687317504547536
     ],
-    "qps_9_3_p50_seconds": 2.1236843508668244,
-    "qps_9_5_p50_seconds": 2.266453037969768
+    "qps_9_2_p50_seconds_winner": [
+      1.9228047595825046,
+      1.9022103992756456,
+      1.9028226807713509
+    ],
+    "qps_9_3_p50_seconds": 2.101120079867542,
+    "qps_9_5_p50_seconds": 2.198
   }
 }
