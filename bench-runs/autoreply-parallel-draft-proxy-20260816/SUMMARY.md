@@ -48,6 +48,7 @@ candidate's 7.8 HTTP QPS is 23.4 sequence QPS.
 | EAGLE3 | patched online FP8 | 55% | 7.1 | 1.717 s | 7.2 | 2.311 s | -25.3% |
 | EAGLE3 | BF16 | 60% | 6.9 | 1.913 s | 7.0 | 2.240 s | -27.4% |
 | EAGLE3 | patched online FP8 | 60% | 7.2 | 1.710 s | 7.3 | 2.095 s | -24.2% |
+| EAGLE3 | serialized NVFP4 | 60% | 7.4 | 1.920 s | 7.5 | 2.245 s | -22.1% |
 | DFlash | BF16 | 60% | 7.2 | 1.823 s | 7.3 | 2.214 s | -24.2% |
 | DSpark | BF16 | 60% | 7.8 | 1.845 s | 7.9 | 2.011 s | -17.9% |
 | DSpark ceiling | BF16 | 100% | 8.5 lower bound | 1.620 s | 9.0 | 2.535 s | at least -10.5% |
@@ -78,6 +79,18 @@ patched diagnostic: native vLLM 0.27.1 loses the target's callable
 empty draft override makes EAGLE3 launch; the minimal diff is saved as
 `patches/speculative-hf-overrides.patch`.
 
+Serialized ModelOpt NVFP4 was also tested after the initial report. The
+EAGLE3 proxy contains eight dense packed NVFP4 linear weights with FP8 block
+scales, second-level scales, and input scales. vLLM identifies the draft as a
+serialized ModelOpt NVFP4 checkpoint and selects
+`FlashInferCutlassNvFp4LinearKernel`; this is not online fake quantization.
+The checkpoint is 215.3 MB and startup model memory is 8.55 GiB.
+
+At 60% acceptance, NVFP4 raises EAGLE3 capacity from 6.9 to 7.4 QPS versus
+BF16 (+7.25%), and from 7.2 to 7.4 versus online FP8 (+2.78%). It remains
+22.1% below the 9.5-QPS no-spec baseline. Aggregate measured acceptance is
+59.91%, so the gain is not caused by an acceptance mismatch.
+
 DFlash online FP8 is structurally unsupported in this release. Its fused
 context-KV path directly consumes quantized QKV storage; FP8 pads the input
 dimension to 6144 and the custom linear receives incompatible
@@ -85,6 +98,14 @@ dimension to 6144 and the custom linear receives incompatible
 incompatibility. Consequently no honest FP8 QPS uplift can be assigned to
 DFlash or DSpark. Quantizing weights offline cannot by itself repair that
 runtime path.
+
+The same incompatibility was verified with serialized NVFP4. After correcting
+the DSpark Markov embedding to remain BF16, all 37 eligible linear weights load
+as NVFP4. Startup then reaches the real context-KV precompute and fails because
+`qwen3_dflash.py` calls `F.linear` directly on packed U8 QKV storage, producing
+`8192x5120 @ 2560x10240`. DFlash shares this implementation. Supporting
+NVFP4 requires changing that custom path to dispatch through the quantized
+linear method; checkpoint conversion alone is insufficient.
 
 ## Why 50%-60% acceptance loses
 
@@ -135,9 +156,10 @@ reported capacity numbers consistently use HTTP QPS.
 ## Training recommendation
 
 Do not spend a training run on these architectures for this exact dataset and
-serving contract. Achieving 50%-60% acceptance is insufficient, draft FP8 buys
-only about 4.4% for EAGLE3, and the best architecture cannot beat no-spec even
-under 100% synthetic acceptance.
+serving contract. Achieving 50%-60% acceptance is insufficient. EAGLE3 draft
+FP8 buys about 4.4% and NVFP4 buys 7.25% versus BF16, but NVFP4 EAGLE3 still
+loses 22.1% to no-spec; the best architecture cannot beat no-spec even under
+100% synthetic acceptance.
 
 Reconsider training only after a runtime change removes material draft cost:
 a much smaller/fused draft, a supported quantized DFlash/DSpark context-KV

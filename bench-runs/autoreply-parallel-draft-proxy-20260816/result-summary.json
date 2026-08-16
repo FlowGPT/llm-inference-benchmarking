@@ -39,14 +39,20 @@
     "bf16_checkpoint_bytes": 765502720,
     "bf16_startup_gpu_gib": 9.06,
     "patched_online_fp8_startup_gpu_gib": 8.75,
+    "serialized_nvfp4_startup_gpu_gib": 8.55,
     "online_fp8_gpu_saving_gib": 0.31,
+    "serialized_nvfp4_checkpoint_bytes": 215330248,
     "capacity_http_qps": {
       "bf16": {"50": 6.7, "55": 6.8, "60": 6.9},
-      "patched_online_fp8": {"50": 7.0, "55": 7.1, "60": 7.2}
+      "patched_online_fp8": {"50": 7.0, "55": 7.1, "60": 7.2},
+      "serialized_nvfp4": {"60": 7.4}
     },
     "online_fp8_qps_uplift_pct": {"50": 4.4776, "55": 4.4118, "60": 4.3478},
+    "nvfp4_qps_uplift_vs_bf16_pct_at_60": 7.2464,
+    "nvfp4_qps_uplift_vs_fp8_pct_at_60": 2.7778,
     "native_online_fp8_status": "unsupported_due_callable_hf_overrides_bug",
-    "patched_online_fp8_status": "diagnostic_only"
+    "patched_online_fp8_status": "diagnostic_only",
+    "serialized_nvfp4_status": "supported_cost_proxy_with_real_nvfp4_kernel"
   },
   "dflash": {
     "draft_layers": 5,
@@ -55,7 +61,8 @@
     "bf16_startup_gpu_gib": 11.13,
     "capacity_http_qps_at_60_pct_acceptance": 7.2,
     "adjacent_fail": {"http_qps": 7.3, "p50_e2e_seconds": 2.214},
-    "online_fp8_status": "unsupported_custom_context_kv_projection_shape_mismatch"
+    "online_fp8_status": "unsupported_custom_context_kv_projection_shape_mismatch",
+    "serialized_nvfp4_status": "unsupported_custom_context_kv_direct_f_linear_on_packed_u8_weight"
   },
   "dspark": {
     "draft_layers": 5,
@@ -66,6 +73,7 @@
     "capacity_http_qps_at_60_pct_acceptance": 7.8,
     "adjacent_fail": {"http_qps": 7.9, "p50_e2e_seconds": 2.011},
     "online_fp8_status": "unsupported_same_backbone_shape_mismatch_as_dflash",
+    "serialized_nvfp4_status": "unsupported_custom_context_kv_direct_f_linear_on_packed_u8_weight",
     "ideal_100_pct_acceptance_ceiling": {
       "passing_lower_bound_http_qps": 8.5,
       "passing_p50_e2e_seconds": 1.620,

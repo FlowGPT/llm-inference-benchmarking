@@ -1,0 +1,6 @@
+{
+  "source": "bench-runs/autoreply-parallel-draft-proxy-20260816/proxies/eagle3",
+  "format": "ModelOpt NVFP4 structural cost proxy",
+  "quantized_linear_weights": 8,
+  "quality_valid": false
+}
