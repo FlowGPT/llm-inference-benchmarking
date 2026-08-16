@@ -93,6 +93,11 @@ def build_manifest(spec: ProxySpec, donor_dir: Path) -> dict[str, object]:
     layer_count = 1 if spec.method == "eagle3" else NUM_DRAFT_LAYERS
     for layer_idx in range(layer_count):
         for source_name, metadata in sorted(donor_layer.items()):
+            if spec.method == "eagle3" and ".self_attn." in source_name and any(
+                projection in source_name
+                for projection in ("q_proj", "k_proj", "v_proj")
+            ):
+                continue
             name = source_name.replace("layers.0.", f"layers.{layer_idx}.", 1)
             shape = tuple(int(value) for value in metadata["shape"])
             dtype = str(metadata["dtype"])
@@ -107,6 +112,7 @@ def build_manifest(spec: ProxySpec, donor_dir: Path) -> dict[str, object]:
                 }
             )
 
+    method_shapes = dict(spec.tensor_shapes)
     if spec.method in {"dflash", "dspark"}:
         for layer_idx in range(NUM_DRAFT_LAYERS):
             for suffix, shape in (
@@ -114,9 +120,9 @@ def build_manifest(spec: ProxySpec, donor_dir: Path) -> dict[str, object]:
                 ("self_attn.q_norm.weight", (128,)),
                 ("self_attn.k_norm.weight", (128,)),
             ):
-                spec.tensor_shapes[f"layers.{layer_idx}.{suffix}"] = shape
+                method_shapes[f"layers.{layer_idx}.{suffix}"] = shape
 
-    for name, shape in sorted(spec.tensor_shapes.items()):
+    for name, shape in sorted(method_shapes.items()):
         tensors.append(
             {
                 "dtype": "BF16",
@@ -213,7 +219,15 @@ def proxy_spec(method: str) -> ProxySpec:
                 "num_aux_hidden_states": 3,
                 "eagle_config": {"use_aux_hidden_state": True},
             },
-            tensor_shapes={"fc.weight": (HIDDEN_SIZE, 3 * HIDDEN_SIZE)},
+            tensor_shapes={
+                "fc.weight": (HIDDEN_SIZE, 3 * HIDDEN_SIZE),
+                "layers.0.input_layernorm.weight": (HIDDEN_SIZE,),
+                "layers.0.hidden_norm.weight": (HIDDEN_SIZE,),
+                "layers.0.self_attn.q_proj.weight": (4096, 2 * HIDDEN_SIZE),
+                "layers.0.self_attn.k_proj.weight": (1024, 2 * HIDDEN_SIZE),
+                "layers.0.self_attn.v_proj.weight": (1024, 2 * HIDDEN_SIZE),
+                "norm.weight": (HIDDEN_SIZE,),
+            },
             num_speculative_tokens=3,
         )
     if method == "dspark":

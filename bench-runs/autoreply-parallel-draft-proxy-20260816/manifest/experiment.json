@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "date": "2026-08-16",
+  "dataset": {
+    "path": "/mnt/shared/sss/data/auto-reply-test.json",
+    "sha256": "501742f94ea6391c74fd624e291bb3cda472d2519a626f8d2a3813a0970eb652",
+    "rows": 1000,
+    "bytes": 45240141
+  },
+  "server": {
+    "image": "vllm/vllm-openai:v0.27.1",
+    "target_model": "/root/.cache/huggingface/saved_models_user-model-afs-sfw-m12-v7_1s1600_nvfp4_kv_fp8",
+    "target_quantization": "modelopt_nvfp4",
+    "target_kv_cache_dtype": "fp8",
+    "max_model_len": 8192,
+    "max_num_seqs": 96,
+    "max_num_batched_tokens": 8192,
+    "max_num_scheduled_tokens": 3072,
+    "gpu_memory_utilization": 0.94,
+    "prefix_caching": true,
+    "chunked_prefill": true
+  },
+  "request": {
+    "n": 3,
+    "max_tokens": 50,
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "top_k": -1,
+    "min_p_disabled": true,
+    "frequency_penalty": 0.01,
+    "presence_penalty": 0.01,
+    "stop": "<|im_end|>"
+  },
+  "capacity_gate": {
+    "success_rate_pct": 100.0,
+    "p50_e2e_seconds_operator": "<",
+    "p50_e2e_seconds": 2.0,
+    "window_seconds": 30
+  },
+  "hardware": {
+    "gpu": "NVIDIA GeForce RTX 5090",
+    "memory_mib": 32607,
+    "driver": "580.173.02"
+  }
+}

@@ -118,6 +118,13 @@ def test_eagle3_manifest_accounts_for_all_tensor_bytes():
     fc = next(tensor for tensor in manifest["tensors"] if tensor["name"] == "fc.weight")
     assert fc["shape"] == [5120, 15360]
     assert fc["source"] == "zero-init"
+    tensors = {tensor["name"]: tensor for tensor in manifest["tensors"]}
+    assert tensors["layers.0.self_attn.q_proj.weight"]["shape"] == [4096, 10240]
+    assert tensors["layers.0.self_attn.k_proj.weight"]["shape"] == [1024, 10240]
+    assert tensors["layers.0.self_attn.v_proj.weight"]["shape"] == [1024, 10240]
+    assert tensors["layers.0.input_layernorm.weight"]["source"] == "identity-init"
+    assert tensors["layers.0.hidden_norm.weight"]["source"] == "identity-init"
+    assert tensors["norm.weight"]["source"] == "identity-init"
 
 
 @pytest.mark.parametrize("method", ["dflash", "dspark"])
