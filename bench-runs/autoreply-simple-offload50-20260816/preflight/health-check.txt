@@ -1,0 +1,16 @@
+==============================================================
+ Health check: model-perf-binary-search
+==============================================================
+GPU       : NVIDIA GeForce RTX 5090  (32607 MiB total, 32109 MiB free), driver 580.173.02
+PCIe link : Gen5 x16  (hardware max: Gen5 x16, theoretical: ~63 GB/s now / ~63 GB/s max)
+Platform  : systemd-detect-virt: kvm
+AER errs  : correctable=0, fatal=0, nonfatal=0  (clean)
+GPU procs : none
+Pinned BW : skipped (torch not importable)
+Disk free : 68.5 GiB at /root/llm-inference-benchmarking
+
+⚠  1 warning(s):
+   • torch not available — pinned bandwidth not measured. Install with `pip install --user torch` to enable this check.
+
+exit: 1   (0=green, 1=warn-non-offload-ok, 2=blocker-offload-unsafe)
+json result written to: bench-runs/autoreply-simple-offload50-20260816/preflight/health-check.json

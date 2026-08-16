@@ -1,0 +1,4 @@
+Image: vllm/vllm-openai:v0.27.1
+Transfer size: 256 MiB pinned host memory
+H2D: median=6.097 ms bandwidth=44.03 GB/s min=6.062 ms max=6.463 ms
+D2H: median=5.272 ms bandwidth=50.92 GB/s min=5.149 ms max=5.626 ms
