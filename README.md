@@ -1,5 +1,92 @@
 # LLM Inference Benchmarking for Chat 
 
+## Automated SLO capacity search with Codex
+
+This repository includes a repo-local Codex skill at
+[`skill/model-perf-binary-search/SKILL.md`](skill/model-perf-binary-search/SKILL.md).
+It finds the highest tested QPS at which an OpenAI-compatible LLM service keeps
+client-side p50 end-to-end latency strictly below a target SLO. The workflow
+probes the initial bounds, expands them when necessary, and then performs a
+binary search to the requested precision.
+
+### Prerequisites
+
+- Open this checked-out repository as the Codex workspace.
+- Install [`uv`](https://docs.astral.sh/uv/). The skill uses it to create or
+  reuse `.venv` and install the benchmark dependencies.
+- Put the replay dataset under `/mnt/shared/sss/data`. The skill uses the
+  selected file in place and does not copy it into the repository.
+- Prepare the full command that starts the model as an OpenAI-compatible
+  service. The command must include its listening port.
+
+The checked-out `online_replay.py` must support
+`--serialize-conversations`, `--continuous-qps-window`, and
+`--preselected-route`. The bootstrap checks these capabilities before it
+installs dependencies or starts a benchmark.
+
+### Run the skill
+
+In Codex chat, ask Codex to use the bundled skill rather than a globally
+installed copy:
+
+```text
+Use the repository skill at skill/model-perf-binary-search/SKILL.md to find
+the maximum sustainable QPS for my model under a p50 E2E latency SLO.
+```
+
+The skill first lists regular files in `/mnt/shared/sss/data` and asks you to
+select exactly one dataset. It then collects the remaining required inputs:
+
+- the complete service startup command;
+- initial QPS bounds (`LOW HIGH`);
+- offload mode (`ON` or `OFF`);
+- the model name passed to the API and the API port;
+- tuning mode (`none`, generic parameter tuning, or feature-enablement tuning);
+- optional SLO and search precision overrides (defaults: `6.5` seconds and
+  `0.1` QPS).
+
+You can provide those values in the next message, for example:
+
+```text
+Dataset: /mnt/shared/sss/data/my-replay.jsonl
+Service command: docker run ... --port 8000 ...
+QPS bounds: 0.5 8.0
+Offload: OFF
+Model: my-model
+Port: 8000
+Tuning: none
+SLO: 6.5 seconds
+Precision: 0.1 QPS
+```
+
+During the run, Codex validates the host, starts or reuses the service with the
+documented ownership checks, measures prefix-cache activity when exposed, and
+classifies every probe from client E2E latency. Non-offload runs use eight
+30-second rounds; offload runs use sixteen. Results are written under
+`bench-runs/`, and the final report includes every tested QPS, the largest
+passing QPS, artifact paths, and the service PID or container. The service is
+left running after the search.
+
+### Preflight and self-test
+
+To validate repository compatibility and dataset selection without installing
+dependencies or running GPU checks:
+
+```bash
+export LLM_BENCH_DATASET_SRC=/mnt/shared/sss/data/my-replay.jsonl
+bash skill/model-perf-binary-search/scripts/bootstrap.sh --check-only
+```
+
+To run the bundled helper and repository-safety tests:
+
+```bash
+bash skill/model-perf-binary-search/scripts/smoke.sh
+```
+
+Generated environments, health reports, and benchmark artifacts are ignored
+by Git. The skill does not clone repositories, switch branches, or modify Git
+state.
+
 ### Set up standalone vllm server 
 
 ```

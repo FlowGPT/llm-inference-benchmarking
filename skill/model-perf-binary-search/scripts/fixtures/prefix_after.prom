@@ -1,0 +1,11 @@
+# snapshot_iso=2026-05-18T04:05:00+00:00
+# snapshot_url=http://localhost:8000/metrics
+# HELP vllm:gpu_prefix_cache_hits_total Cumulative prefix cache hits
+# TYPE vllm:gpu_prefix_cache_hits_total counter
+vllm:gpu_prefix_cache_hits_total 200
+# HELP vllm:gpu_prefix_cache_queries_total Cumulative prefix cache lookups
+# TYPE vllm:gpu_prefix_cache_queries_total counter
+vllm:gpu_prefix_cache_queries_total 500
+# HELP unrelated_metric_total
+# TYPE unrelated_metric_total counter
+unrelated_metric_total 99

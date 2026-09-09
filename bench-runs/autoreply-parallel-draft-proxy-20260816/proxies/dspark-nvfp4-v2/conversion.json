@@ -1,6 +1,0 @@
-{
-  "source": "bench-runs/autoreply-parallel-draft-proxy-20260816/proxies/dspark",
-  "format": "ModelOpt NVFP4 structural cost proxy",
-  "quantized_linear_weights": 37,
-  "quality_valid": false
-}
