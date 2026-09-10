@@ -1,0 +1,5 @@
+# snapshot_iso=2026-05-18T04:05:00+00:00
+# snapshot_url=http://localhost:8000/metrics
+http_requests_total 200
+http_request_duration_seconds_count 100
+gpu_memory_used_bytes 1073741824

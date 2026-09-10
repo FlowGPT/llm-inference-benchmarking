@@ -35,6 +35,108 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# vLLM extra_body sampling keys (top_p / penalties / min_p go here, not OpenAI top-level).
+SAMPLING_EXTRA_KEYS = (
+    "top_p", "top_k", "min_p",
+    "frequency_penalty", "presence_penalty", "repetition_penalty",
+)
+
+# Online production request sampling defaults (CLI unset → these; CLI set → override).
+PROD_SAMPLING_DEFAULTS = {
+    "max_tokens": 200,
+    "temperature": 0.7,
+    "top_p": 0.85,
+    "top_k": 40,
+    "min_p": 0.1,
+    "frequency_penalty": 0.4,
+    "presence_penalty": 0.1,
+    "repetition_penalty": 1.0,
+}
+
+REQUEST_SAMPLING_KEYS = ("max_tokens", "temperature") + SAMPLING_EXTRA_KEYS
+
+
+def _resolve_cli_sampling(args) -> dict[str, Any]:
+    """CLI value if set, else PROD_SAMPLING_DEFAULTS. min_p resolved after warmup."""
+    cfg: dict[str, Any] = {"prefer_log_body": args.prefer_log_body}
+    for key in REQUEST_SAMPLING_KEYS:
+        if key == "min_p":
+            continue
+        val = getattr(args, key, None)
+        cfg[key] = PROD_SAMPLING_DEFAULTS[key] if val is None else val
+    cfg["_min_p_override"] = args.min_p  # None → prod default after warmup
+    return cfg
+
+
+def _resolve_sampling_value(
+    req_body: dict,
+    ep_config: dict,
+    key: str,
+):
+    """log body (if enabled) > CLI/prod ep_config."""
+    if ep_config.get("prefer_log_body", True) and key in req_body:
+        if key == "min_p" and not ep_config.get("min_p_supported", False):
+            return None
+        return req_body[key]
+    if key == "min_p":
+        if not ep_config.get("min_p_supported", False):
+            return None
+        return ep_config.get("min_p")
+    return ep_config.get(key)
+
+
+def _build_extra_body(
+    body: dict[str, Any], *, omit_none_static_extra: bool = False
+) -> dict[str, Any]:
+    extra_body = {key: body[key] for key in SAMPLING_EXTRA_KEYS if key in body}
+    if "enable_kv_evict" in body:
+        extra_body["enable_kv_evict"] = body["enable_kv_evict"]
+    static = body.get("extra_body")
+    if isinstance(static, dict):
+        extra_body.update(
+            {
+                key: value
+                for key, value in static.items()
+                if value is not None or not omit_none_static_extra
+            }
+        )
+    return extra_body
+
+
+async def probe_min_p_supported(ep_config: dict, min_p_value: float) -> bool:
+    """One-shot warmup: check whether the server accepts min_p on this config."""
+    if not ep_config.get("use_chat", True):
+        return False
+    client = openai.AsyncOpenAI(
+        base_url=ep_config["api_base"],
+        api_key=ep_config["api_key"],
+        timeout=min(30.0, ep_config.get("timeout", 600.0)),
+        max_retries=0,
+    )
+    try:
+        await client.chat.completions.create(
+            model=ep_config["model"],
+            messages=[{"role": "user", "content": "ping"}],
+            max_tokens=1,
+            temperature=ep_config.get("temperature", PROD_SAMPLING_DEFAULTS["temperature"]),
+            stream=False,
+            extra_body={
+                "min_p": min_p_value,
+                "top_p": ep_config.get("top_p", PROD_SAMPLING_DEFAULTS["top_p"]),
+                "top_k": ep_config.get("top_k", PROD_SAMPLING_DEFAULTS["top_k"]),
+            },
+        )
+        return True
+    except Exception as exc:
+        msg = str(exc).lower()
+        if any(tok in msg for tok in ("min_p", "speculative", "spec decode", "spec_decode")):
+            logger.info("min_p warmup: unsupported on this server (%s)", exc)
+            return False
+        logger.warning("min_p warmup: probe failed (%s); omitting min_p", exc)
+        return False
+    finally:
+        await client.close()
+
 # 添加对 openai 和 httpx 日志的控制
 openai_logger = logging.getLogger("openai")
 httpx_logger = logging.getLogger("httpx")
@@ -52,15 +154,52 @@ def set_logging_level(verbose):
 
 # Job queue for storing parsed requests
 job_queue = queue.PriorityQueue()
+reader_done_event = threading.Event()
+
+
+class ConversationSequencer:
+    """Serialize request completion within each non-empty conversation."""
+
+    def __init__(self):
+        self._tails: dict[str, asyncio.Future[None]] = {}
+
+    async def run(self, conversation_id: str, operation):
+        if not conversation_id:
+            return await operation()
+
+        loop = asyncio.get_running_loop()
+        previous = self._tails.get(conversation_id)
+        completed = loop.create_future()
+        self._tails[conversation_id] = completed
+        try:
+            if previous is not None:
+                await asyncio.shield(previous)
+            return await operation()
+        finally:
+            if not completed.done():
+                completed.set_result(None)
+            if self._tails.get(conversation_id) is completed:
+                del self._tails[conversation_id]
+
 
 class ReplayJob:
     """Class representing a job to be replayed."""
-    def __init__(self, timestamp: int, url: str, headers: Dict[str, str], body: Dict[str, Any], conversation_id: str, use_chat: bool = True):
+    def __init__(
+        self,
+        timestamp: int,
+        url: str,
+        headers: Dict[str, str],
+        body: Dict[str, Any],
+        conversation_id: str,
+        use_chat: bool = True,
+        omit_none_extra_body: bool = False,
+    ):
         self.timestamp = timestamp
         self.url = url
         self.headers = headers
         self.body = body
         self.use_chat = use_chat
+        self.omit_none_extra_body = omit_none_extra_body
         
         # Round timestamp to seconds for grouping
         self.second_timestamp = timestamp // 1000000000
@@ -153,31 +292,57 @@ def should_process_conversation(conversation_id: str, sample_start: float, sampl
     # 如果哈希值在 [start, end) 区间内，就处理它
     return sample_start <= normalized_hash < sample_end
 
-def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1.0, ep_config: dict = None) -> Optional[ReplayJob]:
+def process_log_line(
+    line: str,
+    sample_start: float = 0.0,
+    sample_end: float = 1.0,
+    ep_config: dict = None,
+    preselected_route: bool = False,
+) -> Optional[ReplayJob]:
     """Process a single log line and convert it to a ReplayJob."""
     try:
-        # Extract timestamp
-        timestamp_match = re.match(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)', line)
-        if not timestamp_match:
-            logger.debug("No timestamp match found")
-            return None
-        
-        timestamp = parse_timestamp(timestamp_match.group(1))
-        if timestamp == 0:
-            return None
+        # Try raw JSONL format first: {"ts":..., "conv_id":..., "body":{...}}
+        raw_jsonl = None
+        try:
+            raw_jsonl = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            pass
 
-        # Extract and parse JSON
-        request_data = extract_json_from_log(line)
-        # print("request_data", request_data)
-        if not request_data:
-            logger.debug("No request data extracted")
-            return None
+        if raw_jsonl and isinstance(raw_jsonl, dict) and 'conv_id' in raw_jsonl and 'body' in raw_jsonl:
+            ts_val = raw_jsonl.get('ts', 0)
+            if isinstance(ts_val, (int, float)):
+                timestamp = int(ts_val)
+            else:
+                timestamp = 0
+            conversation_id = raw_jsonl.get('conv_id', '')
+            body = raw_jsonl.get('body', {})
+            if isinstance(body, str):
+                body = json.loads(body)
+            request_data = {'conversationId': conversation_id, 'body': body}
+        else:
+            # Fall back to log-line format with timestamp prefix
+            timestamp_match = re.match(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)', line)
+            if not timestamp_match:
+                logger.debug("No timestamp match found")
+                return None
 
-        # Prepare headers
+            timestamp = parse_timestamp(timestamp_match.group(1))
+            if timestamp == 0:
+                return None
+
+            request_data = extract_json_from_log(line)
+            if not request_data:
+                logger.debug("No request data extracted")
+                return None
+
         conversation_id = request_data.get('conversationId', '')
         
-        # 根据采样率检查是否需要处理该conversationId
-        if not should_process_conversation(conversation_id, sample_start, sample_end):
+        # A canonical route has already selected complete conversations and
+        # restored source ordering. Applying the legacy MD5 sampler again would
+        # silently change its cache-locality topology.
+        if not preselected_route and not should_process_conversation(
+            conversation_id, sample_start, sample_end
+        ):
             logger.debug(f"Skipping conversation {conversation_id} due to sampling range [{sample_start}, {sample_end}) - hash: {hashlib.md5(conversation_id.encode()).hexdigest()[:8]}") # Log hash for debugging
             return None
 
@@ -199,28 +364,56 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
         # 构造请求体
         if ep_config.get("use_chat", True):
             messages = request_data['body'].get('prompt', [])
-            # print("messages", messages)
-            # print("---------------------------------------------------------------")
             # 确保messages不为空
             if not messages:
                 logger.warning(f"Empty messages for conversation {conversation_id}, skipping")
                 return None
-            
+
+            # prompt 可能是原始 chat-template 字符串而非消息列表，需要包装
+            if isinstance(messages, str):
+                messages = [{"role": "user", "content": messages}]
+            elif isinstance(messages, list) and messages and not isinstance(messages[0], dict):
+                messages = [{"role": "user", "content": str(m)} for m in messages]
+
+            req_body = request_data.get("body", {})
+            if not isinstance(req_body, dict):
+                req_body = {}
             body = {
                 "model": ep_config["model"],
                 "messages": messages,
                 "stream": True,
-                "max_tokens": ep_config.get("max_tokens", 200)
+                "max_tokens": _resolve_sampling_value(req_body, ep_config, "max_tokens"),
+                "temperature": _resolve_sampling_value(req_body, ep_config, "temperature"),
             }
+            for key in SAMPLING_EXTRA_KEYS:
+                val = _resolve_sampling_value(req_body, ep_config, key)
+                if val is not None:
+                    body[key] = val
+            enable_kv_evict = req_body.get("enable_kv_evict")
+            if ep_config.get("forward_kv_evict") and isinstance(
+                enable_kv_evict, bool
+            ):
+                body["enable_kv_evict"] = enable_kv_evict
+            static_extra = ep_config.get("extra_body")
+            if isinstance(static_extra, dict) and static_extra:
+                body["extra_body"] = static_extra
             url = f"{ep_config['api_base'].rstrip('/')}/chat/completions"
         else:
             # 对于非chat模式，构造一个包含单个消息的messages数组
+            req_body = request_data.get("body", {})
+            if not isinstance(req_body, dict):
+                req_body = {}
             body = {
                 "model": ep_config["model"],
                 "messages": [request_data['body'].get('prompt', '')],
                 "stream": True,
-                "max_tokens": ep_config.get("max_tokens", 200)
+                "max_tokens": _resolve_sampling_value(req_body, ep_config, "max_tokens"),
+                "temperature": _resolve_sampling_value(req_body, ep_config, "temperature"),
             }
+            for key in SAMPLING_EXTRA_KEYS:
+                val = _resolve_sampling_value(req_body, ep_config, key)
+                if val is not None:
+                    body[key] = val
             url = f"{ep_config['api_base'].rstrip('/')}/completions"
 
         # 创建ReplayJob
@@ -230,7 +423,8 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
             headers=headers,
             body=body,
             conversation_id=conversation_id,
-            use_chat=ep_config.get("use_chat", False)  # 使用配置中的use_chat参数
+            use_chat=ep_config.get("use_chat", True),  # 使用配置中的use_chat参数
+            omit_none_extra_body=ep_config.get("omit_none_extra_body", False),
         )
         
         return job
@@ -239,7 +433,14 @@ def process_log_line(line: str, sample_start: float = 0.0, sample_end: float = 1
         logger.error(f"Error processing line: {e}")
         return None
 
-def log_reader_thread(input_file: str, preload_time: int = 180, sample_start: float = 0.0, sample_end: float = 1.0, ep_config: dict = None):
+def log_reader_thread(
+    input_file: str,
+    preload_time: int = 180,
+    sample_start: float = 0.0,
+    sample_end: float = 1.0,
+    ep_config: dict = None,
+    preselected_route: bool = False,
+):
     """Thread A: Read log file and add jobs to the queue."""
     try:
         logger.info(f"Starting log reader thread with {preload_time} seconds preload time and sample range [{sample_start*100:.1f}%, {sample_end*100:.1f}%)")
@@ -251,7 +452,10 @@ def log_reader_thread(input_file: str, preload_time: int = 180, sample_start: fl
             for line_number, line in enumerate(fin, 1):
                 try:
                     logger.debug(f"Processing line {line_number}")
-                    job = process_log_line(line.strip(), sample_start, sample_end, ep_config)
+                    job = process_log_line(
+                        line.strip(), sample_start, sample_end, ep_config,
+                        preselected_route,
+                    )
                     if job:
                         # Add job to queue
                         job_queue.put(job)
@@ -274,6 +478,8 @@ def log_reader_thread(input_file: str, preload_time: int = 180, sample_start: fl
     except Exception as e:
         logger.error(f"Error in log reader thread: {e}")
         raise
+    finally:
+        reader_done_event.set()
 
 # 全局会话对象管理类
 class ClientManager:
@@ -288,7 +494,8 @@ class ClientManager:
             if self._client is None:
                 self._client = openai.AsyncOpenAI(
                     base_url=ep_config["api_base"],
-                    api_key=ep_config["api_key"]
+                    api_key=ep_config["api_key"],
+                    timeout=ep_config.get("timeout", 600.0),
                 )
             return self._client
     
@@ -319,24 +526,18 @@ async def send_request(client, job):
         ttft = None
         tokens_in = 0
         tokens_out = 0
+        logger.debug(f"[{job.request_id}] send_request started")
         
         # Add headers for tracking
         extra_headers = {
             "X-Flow-Conversation-Id": str(job.conversation_id) if job.conversation_id else "",
             "X-Request-Id": job.request_id  # vllm读取这个字段作为request_id，添加request_id到请求头，用于全链路追踪
         }
-        extra_body = {}
-        # 采样参数全部放到 extra_body
-        extra_body.update({
-            "min_p": 0.02,
-            "top_p": 1,
-            "top_k": -1,
-            "frequency_penalty": 0,
-            "presence_penalty": 0,
-            "repetition_penalty": 1,
-            "temperature": 0.8
-        })
-        
+        extra_body = _build_extra_body(
+            job.body,
+            omit_none_static_extra=job.omit_none_extra_body,
+        )
+
         if job.use_chat:
             if not job.body.get("messages"):
                 logger.warning("Empty messages array, skipping request")
@@ -347,11 +548,9 @@ async def send_request(client, job):
             
             response = await client.chat.completions.create(
                 model=job.body.get("model"),
-                messages=[
-                    {"role": "user", "content": job.body.get("messages")}
-                ],
+                messages=job.body.get("messages"),
                 max_tokens=job.body.get("max_tokens", 200),
-                temperature=0,
+                temperature=job.body.get("temperature", 0.8),
                 stream=True,
                 stream_options={"include_usage": True},
                 extra_headers=extra_headers,
@@ -362,7 +561,7 @@ async def send_request(client, job):
                 model=job.body.get("model"),
                 prompt=job.body.get("messages"),
                 max_tokens=job.body.get("max_tokens", 200),
-                temperature=0,
+                temperature=job.body.get("temperature", 0.8),
                 stream=True,
                 stream_options={"include_usage": True},
                 extra_headers=extra_headers,
@@ -370,41 +569,94 @@ async def send_request(client, job):
             )
             
         words = ""
+        tok = None
+        chunk_count = 0
+        _dumped_empty_chunk = False
         async for tok in response:
+            chunk_count += 1
             if not tok.choices:
+                logger.debug(f"[{job.request_id}] chunk#{chunk_count} has no choices (likely usage chunk): usage={tok.usage}")
                 continue
+
+            chunk_text = None
             if job.use_chat:
                 delta = tok.choices[0].delta
-                if delta.content:
-                    if ttft is None:
-                        ttft = time.perf_counter() - start_time
-                    words += delta.content
+                chunk_text = delta.content \
+                    or getattr(delta, 'reasoning_content', None) \
+                    or getattr(delta, 'refusal', None) \
+                    or ""
+                if not chunk_text and not _dumped_empty_chunk:
+                    _dumped_empty_chunk = True
+                    logger.debug(f"[{job.request_id}] chunk#{chunk_count} delta has no content, "
+                                 f"raw delta fields: {vars(delta) if hasattr(delta, '__dict__') else delta}")
             else:
-                delta = tok.choices[0]
-                if delta.text:
-                    if ttft is None:
-                        ttft = time.perf_counter() - start_time
-                    words += delta.text
-                    
+                choice = tok.choices[0]
+                chunk_text = getattr(choice, 'text', None) or ""
+                if not chunk_text and not _dumped_empty_chunk:
+                    _dumped_empty_chunk = True
+                    logger.debug(f"[{job.request_id}] chunk#{chunk_count} choice has no text, "
+                                 f"raw choice fields: {vars(choice) if hasattr(choice, '__dict__') else choice}")
+
+            if chunk_text:
+                if ttft is None:
+                    ttft = time.perf_counter() - start_time
+                    logger.debug(f"[{job.request_id}] TTFT={ttft:.3f}s")
+                words += chunk_text
+
+        logger.debug(f"[{job.request_id}] stream ended, chunk_count={chunk_count}, tok={tok}")
+
+        if tok is None:
+            logger.error(f"[{job.request_id}] stream returned zero chunks (empty response)")
+            return (job.request_id, "Exception", -1, -1, -1, -1, "EmptyStream")
+
+        if tok.usage is None:
+            logger.error(f"[{job.request_id}] last chunk has no usage field, tok.choices={tok.choices}")
+            return (job.request_id, "Exception", -1, -1, -1, -1, "NoUsage")
+
         tokens_in = tok.usage.prompt_tokens
         tokens_out = tok.usage.completion_tokens
         total_time = time.perf_counter() - start_time
-        
+
+        if ttft is None:
+            hint = " (hint: this is a chat/instruct model, try --use-chat)" if not job.use_chat else ""
+            logger.warning(f"[{job.request_id}] ttft is None after stream (no content chunks?), "
+                           f"total_time={total_time:.3f}s, tokens_out={tokens_out}{hint}")
+
+        logger.debug(f"[{job.request_id}] OK total_time={total_time:.3f}s tokens_in={tokens_in} tokens_out={tokens_out}")
         return (job.request_id, "OK", ttft, total_time, tokens_in, tokens_out, "")
-        
+
     except asyncio.TimeoutError:
-        logger.error("Request timed out after 2s")
+        logger.error(f"[{job.request_id}] asyncio.TimeoutError (no explicit timeout set — SDK-level timeout?)")
         return (job.request_id, "Exception", -1, -1, -1, -1, "Timeout")
     except Exception as e:
-        logger.error(f"Request failed: {e}")
-        return (job.request_id, "Exception", -1, -1, -1, -1, str(e))
-    
+        logger.error(f"[{job.request_id}] Exception type={type(e).__name__} msg={e}")
+        return (job.request_id, "Exception", -1, -1, -1, -1, f"{type(e).__name__}: {e}")
+
+
+async def dispatch_request(
+    client,
+    job,
+    sequencer=None,
+    scheduled_at=None,
+):
+    async def operation():
+        wire_started_at = time.perf_counter()
+        result = await send_request(client, job)
+        if scheduled_at is None:
+            return result
+        return (*result, scheduled_at, wire_started_at, time.perf_counter())
+
+    if sequencer is None:
+        return await operation()
+    return await sequencer.run(job.conversation_id, operation)
+
 
 class ResultCollector:
     """用于收集和分析请求结果的类"""
-    def __init__(self, ep_config, round_duration, max_rounds=None, detailed_logs=False):
+    def __init__(self, ep_config, round_duration, max_rounds=None, detailed_logs=False, round_drain_timeout=300):
         self.results_queue = queue.Queue()
         self.query_results = []
+        self.current_round_request_ids = set()  # 本轮发出的 request_id
         self.elts = []
         self.jobs_processed = 0
         self.round_start_time = time.perf_counter()
@@ -415,6 +667,9 @@ class ResultCollector:
         self.current_round = 0
         self.max_rounds = max_rounds
         self.detailed_logs = detailed_logs
+        self.round_drain_timeout = round_drain_timeout
+        self.round_draining = False
+        self.round_drain_start_time = None
         
         # 用于详细日志的数据结构
         if detailed_logs:
@@ -472,27 +727,61 @@ class ResultCollector:
     def check_and_report_metrics(self, qps=None, concur_requests=None):
         """检查是否需要报告指标并重置统计"""
         current_time = time.perf_counter()
-        if current_time - self.round_start_time >= self.round_duration:
+        elapsed_since_round_start = current_time - self.round_start_time
+        if elapsed_since_round_start >= self.round_duration:
+            if not self.round_draining:
+                self.round_draining = True
+                self.round_drain_start_time = current_time
+
+            completed_request_ids = {
+                r[0] for r in self.query_results
+                if isinstance(r, tuple) and len(r) > 0
+            }
+            outstanding = self.current_round_request_ids - completed_request_ids
+            drain_elapsed = current_time - (self.round_drain_start_time or current_time)
+            if outstanding and drain_elapsed < self.round_drain_timeout:
+                if int(drain_elapsed) % 10 == 0:
+                    logger.info(
+                        "Round send window elapsed; waiting for %d in-flight requests to finish (%.0fs/%ss)",
+                        len(outstanding), drain_elapsed, self.round_drain_timeout)
+                return False
+
             self.current_round += 1
-            elapsed_time = current_time - self.round_start_time
+            elapsed_time = self.round_duration
             self.elts.append(elapsed_time)
             actual_qps = self.jobs_processed / elapsed_time
-            
+
+            round_results = [
+                r for r in self.query_results
+                if isinstance(r, tuple) and len(r) > 0 and r[0] in self.current_round_request_ids
+            ]
+            pending_results = [
+                r for r in self.query_results
+                if not (isinstance(r, tuple) and len(r) > 0 and r[0] in self.current_round_request_ids)
+            ]
+            if outstanding:
+                logger.warning(
+                    "Reporting round with %d unfinished requests after drain timeout %ss",
+                    len(outstanding), self.round_drain_timeout)
+
             # 分析结果
             results_analysis(
-                self.query_results,
+                round_results,
                 self.elts,
                 self.ep_config["model"],
-                qps=qps,  # 使用传入的目标QPS
-                actual_qps=actual_qps,  # 同时传入实际QPS
+                qps=qps,
+                actual_qps=actual_qps,
                 concur_requests=concur_requests,
                 json_output=args.json_output,
             )
-            
-            # 重置统计
-            self.query_results = []
+
+            # 重置统计，保留跨轮次的结果和 request_id
+            self.query_results = pending_results
             self.jobs_processed = 0
             self.round_start_time = current_time
+            self.current_round_request_ids = set()
+            self.round_draining = False
+            self.round_drain_start_time = None
 
             # 检查是否达到最大轮数
             if self.max_rounds is not None and self.current_round >= self.max_rounds:
@@ -543,22 +832,56 @@ class ResultCollector:
 
 async def async_replay_loop(start_timestamp, start_time, ep_config: dict = None, replay_mode: str = "timestamp", 
                           target_qps: float = 1.0, round_duration: int = 60, max_rounds: int = None,
-                          detailed_logs: bool = False):
+                          detailed_logs: bool = False, round_drain_timeout: int = 300,
+                          continuous_qps_window: bool = False):
     """根据不同模式选择相应的重放方式"""
     try:
         client = await client_manager.get_client(ep_config)
         
         # 创建结果收集器并设置为全局变量
         global global_result_collector
+        sequencer = (
+            ConversationSequencer()
+            if ep_config.get("serialize_conversations")
+            else None
+        )
         
         if replay_mode == "timestamp":
-            result_collector = ResultCollector(ep_config, round_duration, max_rounds, detailed_logs)
+            result_collector = ResultCollector(ep_config, round_duration, max_rounds, detailed_logs, round_drain_timeout)
             global_result_collector = result_collector
-            await replay_by_timestamp(client, result_collector, start_timestamp, start_time, round_duration, max_rounds, detailed_logs)
+            await replay_by_timestamp(
+                client,
+                result_collector,
+                start_timestamp,
+                start_time,
+                round_duration,
+                max_rounds,
+                detailed_logs,
+                sequencer,
+            )
         elif replay_mode == "qps":
-            result_collector = ResultCollector(ep_config, round_duration, max_rounds, detailed_logs)
+            result_collector = ResultCollector(ep_config, round_duration, max_rounds, detailed_logs, round_drain_timeout)
             global_result_collector = result_collector
-            await replay_by_qps(client, result_collector, target_qps, round_duration, max_rounds, detailed_logs)
+            if continuous_qps_window:
+                await replay_by_qps_continuous(
+                    client,
+                    result_collector,
+                    target_qps,
+                    round_duration,
+                    max_rounds,
+                    detailed_logs,
+                    sequencer,
+                )
+            else:
+                await replay_by_qps(
+                    client,
+                    result_collector,
+                    target_qps,
+                    round_duration,
+                    max_rounds,
+                    detailed_logs,
+                    sequencer,
+                )
         else:
             logger.error(f"Unknown replay mode: {replay_mode}")
             
@@ -566,7 +889,16 @@ async def async_replay_loop(start_timestamp, start_time, ep_config: dict = None,
         # 清理资源
         await client_manager.cleanup()
 
-async def replay_by_timestamp(client, result_collector, start_timestamp, start_time, round_duration, max_rounds=None, detailed_logs=False):
+async def replay_by_timestamp(
+    client,
+    result_collector,
+    start_timestamp,
+    start_time,
+    round_duration,
+    max_rounds=None,
+    detailed_logs=False,
+    sequencer=None,
+):
     """按原始时间戳重放请求"""
     current_second = None
     current_jobs = []
@@ -614,7 +946,9 @@ async def replay_by_timestamp(client, result_collector, start_timestamp, start_t
                     # 为每个任务创建异步任务并设置回调
                     for job in current_jobs:
                         send_time = time.perf_counter()
-                        task = asyncio.create_task(send_request(client, job))
+                        task = asyncio.create_task(
+                            dispatch_request(client, job, sequencer)
+                        )
                         
                         # 添加回调函数
                         def callback(task, job_request_id=job.request_id, job_send_time=send_time, job=job):
@@ -674,7 +1008,15 @@ async def replay_by_timestamp(client, result_collector, start_timestamp, start_t
         logger.error(f"Error in timestamp replay: {e}")
         raise
 
-async def replay_by_qps(client, result_collector, target_qps, round_duration, max_rounds=None, detailed_logs=False):
+async def replay_by_qps(
+    client,
+    result_collector,
+    target_qps,
+    round_duration,
+    max_rounds=None,
+    detailed_logs=False,
+    sequencer=None,
+):
     """按指定QPS重放请求，使用令牌桶算法确保QPS精确控制"""
     time_between_requests = 1.0 / target_qps
     
@@ -686,6 +1028,11 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
         while True:
             try:
                 if job_queue.empty():
+                    result_collector.collect_results()
+                    result_collector.check_and_report_metrics(qps=target_qps)
+                    if reader_done_event.is_set() and not result_collector.current_round_request_ids:
+                        logger.info("Job queue is empty and log reader is done, exiting")
+                        break
                     await asyncio.sleep(0.01)
                     continue
                 
@@ -695,7 +1042,8 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
                 expected_requests = math.floor(elapsed_since_start * target_qps)
                 
                 # 如果已发送的请求少于应发送的请求，则发送请求
-                if result_collector.jobs_processed < expected_requests:
+                if (not result_collector.round_draining
+                        and result_collector.jobs_processed < expected_requests):
                     jobs_to_send = expected_requests - result_collector.jobs_processed
                     
                     # 批量发送请求以赶上目标QPS
@@ -705,8 +1053,11 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
                             
                         job = job_queue.get()
                         send_time = time.perf_counter()
-                        task = asyncio.create_task(send_request(client, job))
-                        
+                        result_collector.current_round_request_ids.add(job.request_id)
+                        task = asyncio.create_task(
+                            dispatch_request(client, job, sequencer)
+                        )
+
                         # 添加回调函数
                         def callback(task, job_request_id=job.request_id, job_send_time=send_time, job=job):
                             try:
@@ -716,7 +1067,7 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
                                 result_collector.total_requests += 1
                                 if status == "OK":
                                     result_collector.successful_requests += 1
-                                
+
                                 # 添加详细日志数据
                                 if detailed_logs and status == "OK":
                                     result_collector.add_detailed_result(
@@ -724,7 +1075,7 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
                                     )
                             except Exception as e:
                                 logger.error(f"Error in send_request callback: {e}")
-                        
+
                         task.add_done_callback(callback)
                         
                         result_collector.increment_jobs_processed()
@@ -737,6 +1088,8 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
                 # 精确控制循环间隔，避免CPU空转
                 next_decision_time = result_collector.round_start_time + ((result_collector.jobs_processed + 1) / target_qps)
                 sleep_time = max(0, next_decision_time - time.perf_counter())
+                if result_collector.round_draining:
+                    sleep_time = min(sleep_time, 0.05)
                 if sleep_time > 0:
                     await asyncio.sleep(sleep_time)
                 else:
@@ -751,33 +1104,168 @@ async def replay_by_qps(client, result_collector, target_qps, round_duration, ma
             # 检查是否应该退出
             if job_queue.empty():
                 await asyncio.sleep(0.1)  # 给一个机会让更多任务进来
-                if job_queue.empty():  # 二次确认
+                if job_queue.empty() and reader_done_event.is_set():  # 二次确认，且 reader 已结束
                     # 最后一次收集结果
                     result_collector.collect_results()
                     result_collector.check_and_report_metrics(qps=target_qps)
-                    
-                    # 保存详细日志结果
-                    if detailed_logs:
-                        result_collector.save_detailed_results()
-                        
-                    logger.info("All requests processed, exiting")
-                    break
+                    if not result_collector.current_round_request_ids:
+                        # 保存详细日志结果
+                        if detailed_logs:
+                            result_collector.save_detailed_results()
+
+                        logger.info("All requests processed, exiting")
+                        break
                     
     except Exception as e:
         logger.error(f"Error in QPS replay: {e}")
         raise
 
+
+async def replay_by_qps_continuous(
+    client,
+    result_collector,
+    target_qps,
+    round_duration,
+    max_rounds,
+    detailed_logs=False,
+    sequencer=None,
+):
+    """Send continuously across reporting windows and drain only once."""
+    if max_rounds is None:
+        raise ValueError("--continuous-qps-window requires --max-rounds")
+
+    measurement_start = time.perf_counter()
+    measurement_duration = round_duration * max_rounds
+    measurement_end = measurement_start + measurement_duration
+    scheduled = 0
+    tasks: set[asyncio.Task] = set()
+
+    def completed(task):
+        tasks.discard(task)
+        try:
+            result = task.result()
+        except Exception as exc:
+            logger.error("continuous request task failed: %s", exc)
+            return
+        result_collector.results_queue.put(result)
+        result_collector.total_requests += 1
+        if result[1] == "OK":
+            result_collector.successful_requests += 1
+
+    while time.perf_counter() < measurement_end:
+        elapsed = time.perf_counter() - measurement_start
+        expected = min(
+            math.floor(elapsed * target_qps),
+            math.floor(measurement_duration * target_qps),
+        )
+        while scheduled < expected and not job_queue.empty():
+            job = job_queue.get()
+            scheduled_at = time.perf_counter()
+            task = asyncio.create_task(
+                dispatch_request(
+                    client,
+                    job,
+                    sequencer,
+                    scheduled_at=scheduled_at,
+                )
+            )
+            tasks.add(task)
+            task.add_done_callback(completed)
+            scheduled += 1
+        next_scheduled_at = measurement_start + (scheduled + 1) / target_qps
+        await asyncio.sleep(
+            min(0.05, max(0.001, next_scheduled_at - time.perf_counter()))
+        )
+
+    logger.info(
+        "Continuous send window complete: %d requests in %.1fs; draining once",
+        scheduled,
+        measurement_duration,
+    )
+    if tasks:
+        _, pending = await asyncio.wait(
+            tasks,
+            timeout=result_collector.round_drain_timeout,
+        )
+        if pending:
+            logger.warning(
+                "%d requests unfinished after final drain timeout %ss",
+                len(pending),
+                result_collector.round_drain_timeout,
+            )
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+
+    result_collector.collect_results()
+    all_results = list(result_collector.query_results)
+    for round_index in range(max_rounds):
+        window_start = measurement_start + round_index * round_duration
+        window_end = window_start + round_duration
+        round_results = [
+            result
+            for result in all_results
+            if len(result) >= 10
+            and window_start <= result[7] < window_end
+        ]
+        wire_count = sum(
+            len(result) >= 10
+            and window_start <= result[8] < window_end
+            for result in all_results
+        )
+        completion_count = sum(
+            len(result) >= 10
+            and window_start <= result[9] < window_end
+            for result in all_results
+        )
+        scheduled_qps = len(round_results) / round_duration
+        results_analysis(
+            round_results,
+            [round_duration],
+            result_collector.ep_config["model"],
+            qps=target_qps,
+            actual_qps=scheduled_qps,
+            json_output=args.json_output,
+            timing_metrics={
+                "wire_dispatch_qps": wire_count / round_duration,
+                "completion_qps": completion_count / round_duration,
+                "measurement_round": round_index + 1,
+                "continuous_qps_window": True,
+            },
+        )
+
+    if detailed_logs:
+        result_collector.save_detailed_results()
+
 def replay_thread(ep_config: dict = None, replay_mode: str = "timestamp", 
                  target_qps: float = 1.0, round_duration: int = 60, max_rounds: int = None,
-                 detailed_logs: bool = False):
+                 detailed_logs: bool = False, round_drain_timeout: int = 300,
+                 continuous_qps_window: bool = False):
     """Thread B: Consume jobs from the queue and send requests in batches by second."""
     try:
         logger.info("Starting replay thread")
         
-        # Get the first job to establish the start time
+        # Get the first job to establish the start time. The reader may need to
+        # scan a large file before the hash sample range produces its first job.
+        wait_start = time.perf_counter()
+        while job_queue.empty() and not reader_done_event.is_set():
+            waited = time.perf_counter() - wait_start
+            if int(waited) > 0 and int(waited) % 10 == 0:
+                logger.info(f"Waiting for log reader to enqueue first job ({waited:.0f}s elapsed)")
+            time.sleep(0.1)
         if job_queue.empty():
-            logger.error("Job queue is empty, cannot start replay")
+            logger.error("Job queue is empty and log reader is done, cannot start replay")
             return
+
+        # QPS mode replays in production time order (file ts ascending).  Wait for
+        # the reader to finish so PriorityQueue holds the full timeline before we
+        # start draining at a fixed QPS.
+        if replay_mode == "qps":
+            while not reader_done_event.is_set():
+                time.sleep(0.05)
+            logger.info(
+                f"Log reader finished ({job_queue.qsize()} jobs); QPS replay in time order"
+            )
             
         first_job = job_queue.get()
         start_timestamp = first_job.second_timestamp  # Use second-level timestamp
@@ -794,11 +1282,12 @@ def replay_thread(ep_config: dict = None, replay_mode: str = "timestamp",
             loop.run_until_complete(async_replay_loop(
                 start_timestamp, start_time, ep_config,
                 replay_mode, target_qps, round_duration, max_rounds,
-                detailed_logs
+                detailed_logs, round_drain_timeout, continuous_qps_window
             ))
         except KeyboardInterrupt:
             logger.info("Keyboard interrupt received, stopping replay")
         finally:
+            loop.run_until_complete(loop.shutdown_asyncgens())
             loop.close()
             
     except Exception as e:
@@ -806,7 +1295,14 @@ def replay_thread(ep_config: dict = None, replay_mode: str = "timestamp",
         raise
 
 def results_analysis(
-    query_results, elts, model, concur_requests=None, qps=None, actual_qps=None, json_output=None
+    query_results,
+    elts,
+    model,
+    concur_requests=None,
+    qps=None,
+    actual_qps=None,
+    json_output=None,
+    timing_metrics=None,
 ):
     """分析请求结果并输出性能指标"""
     print("-------------------------")
@@ -818,7 +1314,28 @@ def results_analysis(
             json_output = None
 
     # 根据返回结果的格式调整列名
-    if query_results and len(query_results[0]) > 6:  # 新格式包含request_id
+    if query_results and len(query_results[0]) >= 10:
+        df = pd.DataFrame(
+            query_results,
+            columns=[
+                "request_id",
+                "valid",
+                "server_ttft",
+                "server_time",
+                "tokens_in",
+                "tokens_out",
+                "cause",
+                "scheduled_at",
+                "wire_started_at",
+                "completed_at",
+            ],
+        )
+        df["sequencer_wait"] = (
+            df["wire_started_at"] - df["scheduled_at"]
+        )
+        df["ttft"] = df["sequencer_wait"] + df["server_ttft"]
+        df["total_time"] = df["completed_at"] - df["scheduled_at"]
+    elif query_results and len(query_results[0]) > 6:  # 新格式包含request_id
         df = pd.DataFrame(
             query_results,
             columns=[
@@ -850,7 +1367,19 @@ def results_analysis(
     success_rate = (successful_requests / total_requests * 100) if total_requests > 0 else 0
     
     cdf = df[df.valid != "Exception"].copy()
-    if len(cdf) > 0:
+    mean_tokens_in = 0
+    mean_tokens_out = 0
+    if len(cdf) == 0:
+        logger.warning(f"No successful requests in this round (all {total_requests} were exceptions), skipping metrics report")
+        exceptions_by_cause = Counter(df["cause"].tolist())
+        if exceptions_by_cause:
+            print("\nExceptions by cause:")
+            for cause, count in exceptions_by_cause.items():
+                print(f" - {count}: {cause}")
+        print("-------------------------")
+        return
+
+    if True:
         console = Console()
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("Metric")
@@ -864,11 +1393,20 @@ def results_analysis(
         if json_output:
             json_record = {}
 
-        cdf["tokens_per_s"] = cdf.tokens_out / cdf.total_time
+        server_time = (
+            cdf["server_time"] if "server_time" in cdf else cdf["total_time"]
+        )
+        server_ttft = (
+            cdf["server_ttft"] if "server_ttft" in cdf else cdf["ttft"]
+        )
+        cdf["tokens_per_s"] = cdf.tokens_out / server_time
         mean_tokens_in = int(cdf["tokens_in"].mean())
         mean_tokens_out = int(cdf["tokens_out"].mean())
 
-        s_per_output_token = (cdf["total_time"] - cdf["ttft"]) / (cdf["tokens_out"] - 1)
+        s_per_output_token = (
+            (server_time - server_ttft)
+            / (cdf["tokens_out"] - 1).replace(0, float("nan"))
+        )
 
         total_input_tokens = cdf['tokens_in'].sum()
         total_output_tokens = cdf['tokens_out'].sum()
@@ -944,6 +1482,8 @@ def results_analysis(
             json_record["target_qps"] = qps
         if actual_qps is not None:
             json_record["actual_qps"] = actual_qps
+        if timing_metrics:
+            json_record.update(timing_metrics)
         json_record["success_rate"] = success_rate
         json_record["input_tokens"] = mean_tokens_in
         json_record["output_tokens"] = mean_tokens_out
@@ -987,6 +1527,9 @@ def results_analysis(
             }
 
     show_metric("Latency", "s", cdf["total_time"])
+    if "server_time" in cdf:
+        show_metric("Server Latency", "s", cdf["server_time"])
+        show_metric("Sequencer Wait", "s", cdf["sequencer_wait"])
     show_metric("Throughput", "tokens/s", cdf["tokens_per_s"])
     show_metric("TTFT", "s", cdf["ttft"])
     show_metric("TPOT", "ms", s_per_output_token * 1000)
@@ -1032,8 +1575,30 @@ def main(args, sample_start, sample_end):
             "api_key": args.api_key,
             "model": args.model,
             "use_chat": args.use_chat,
-            "max_tokens": args.max_tokens
+            "timeout": args.request_timeout,
+            "forward_kv_evict": args.forward_kv_evict,
+            "serialize_conversations": args.serialize_conversations,
+            "extra_body": args.extra_body_json,
+            "omit_none_extra_body": args.omit_none_extra_body,
         }
+        sampling = _resolve_cli_sampling(args)
+        min_p_override = sampling.pop("_min_p_override", None)
+        ep_config.update(sampling)
+        min_p_candidate = (
+            min_p_override if min_p_override is not None else PROD_SAMPLING_DEFAULTS["min_p"]
+        )
+
+        min_p_ok = (
+            False
+            if args.disable_min_p
+            else asyncio.run(probe_min_p_supported(ep_config, min_p_candidate))
+        )
+        ep_config["min_p_supported"] = min_p_ok
+        if min_p_ok:
+            ep_config["min_p"] = min_p_candidate
+            logger.info("min_p warmup: supported, using min_p=%s", min_p_candidate)
+        else:
+            logger.info("min_p warmup: omitted for this run (server/config incompatible)")
         
         # 创建全局结果收集器，用于在程序退出时保存结果
         global global_result_collector
@@ -1052,8 +1617,20 @@ def main(args, sample_start, sample_end):
         if args.detailed_logs:
             signal.signal(signal.SIGINT, global_signal_handler)
         
+        reader_done_event.clear()
+
         # Start the log reader thread
-        reader_thread = threading.Thread(target=log_reader_thread, args=(args.input, args.preload_time, sample_start, sample_end, ep_config))
+        reader_thread = threading.Thread(
+            target=log_reader_thread,
+            args=(
+                args.input,
+                args.preload_time,
+                sample_start,
+                sample_end,
+                ep_config,
+                args.preselected_route,
+            ),
+        )
         reader_thread.daemon = True
         reader_thread.start()
         
@@ -1064,7 +1641,9 @@ def main(args, sample_start, sample_end):
         # Start the replay thread with ep_config and replay parameters
         replay_thread_instance = threading.Thread(
             target=replay_thread, 
-            args=(ep_config, args.replay_mode, args.target_qps, args.round_duration, args.max_rounds, args.detailed_logs)
+            args=(ep_config, args.replay_mode, args.target_qps, args.round_duration,
+                  args.max_rounds, args.detailed_logs, args.round_drain_timeout,
+                  args.continuous_qps_window)
         )
         replay_thread_instance.daemon = True
         replay_thread_instance.start()
@@ -1104,12 +1683,81 @@ if __name__ == "__main__":
                         help="API base url")
     parser.add_argument("--model", type=str, default="Nitral-AI/Captain-Eris_Violet-V0.420-12B",
                         help="Model name to use")
-    parser.add_argument("--use-chat", type=bool, default=False,
+    parser.add_argument("--use-chat", action="store_true", default=False,
                         help="Whether to use the chat endpoint")
-    parser.add_argument("--max-tokens", type=int, default=180,
-                        help="Maximum number of tokens to generate (default: 180)")
+    parser.add_argument("--max-tokens", type=int, default=None,
+                        help="Max output tokens when log body has none "
+                             f"(default prod: {PROD_SAMPLING_DEFAULTS['max_tokens']})")
+    parser.add_argument("--temperature", type=float, default=None,
+                        help="Sampling temperature when log body has none "
+                             f"(default prod: {PROD_SAMPLING_DEFAULTS['temperature']})")
+    parser.add_argument("--top-p", type=float, default=None,
+                        help=f"top_p in extra_body (default prod: {PROD_SAMPLING_DEFAULTS['top_p']})")
+    parser.add_argument("--top-k", type=int, default=None,
+                        help=f"top_k in extra_body (default prod: {PROD_SAMPLING_DEFAULTS['top_k']})")
+    parser.add_argument("--min-p", type=float, default=None,
+                        help=f"min_p in extra_body (default prod: {PROD_SAMPLING_DEFAULTS['min_p']}; "
+                             "warmup probe decides if server accepts it)")
+    parser.add_argument(
+        "--disable-min-p",
+        action="store_true",
+        help="Never probe or send min_p (required for MTP)",
+    )
+    parser.add_argument("--frequency-penalty", type=float, default=None,
+                        help=f"frequency_penalty (default prod: {PROD_SAMPLING_DEFAULTS['frequency_penalty']})")
+    parser.add_argument("--presence-penalty", type=float, default=None,
+                        help=f"presence_penalty (default prod: {PROD_SAMPLING_DEFAULTS['presence_penalty']})")
+    parser.add_argument("--repetition-penalty", type=float, default=None,
+                        help=f"repetition_penalty (default prod: {PROD_SAMPLING_DEFAULTS['repetition_penalty']})")
+    parser.add_argument(
+        "--prefer-log-body",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Prefer per-request sampling from log body when present (default: on)",
+    )
+    parser.add_argument(
+        "--forward-kv-evict",
+        action="store_true",
+        help="Forward body.enable_kv_evict to vLLM (default: disabled)",
+    )
+    parser.add_argument(
+        "--extra-body-json",
+        type=json.loads,
+        default=None,
+        help="JSON object merged into every request extra_body "
+             "(e.g. '{\"chat_template_kwargs\":{\"thinking\":false},\"reasoning_effort\":\"none\"}')",
+    )
+    parser.add_argument(
+        "--omit-none-extra-body",
+        action="store_true",
+        help=(
+            "Omit None-valued keys from --extra-body-json before HTTP "
+            "serialization (opt-in compatibility adapter)."
+        ),
+    )
+    parser.add_argument(
+        "--serialize-conversations",
+        action="store_true",
+        help=(
+            "Wait for each conversation's previous request to finish while "
+            "keeping different conversations concurrent."
+        ),
+    )
     parser.add_argument("--round-duration", type=int, default=60,
                         help="Duration of each round in seconds (default: 60)")
+    parser.add_argument("--round-drain-timeout", type=int, default=300,
+                        help="Seconds to wait for requests sent in a round to finish before reporting that round")
+    parser.add_argument(
+        "--continuous-qps-window",
+        action="store_true",
+        help=(
+            "In QPS mode, send continuously across all reporting windows and "
+            "drain only once at the end. Reports wire dispatch QPS and includes "
+            "conversation sequencing wait in Latency."
+        ),
+    )
+    parser.add_argument("--request-timeout", type=float, default=600.0,
+                        help="OpenAI client request timeout in seconds")
     parser.add_argument("--max-rounds", type=int, default=None,
                         help="Maximum number of rounds to run (default: None, run until all requests are processed)")
 
@@ -1119,6 +1767,11 @@ if __name__ == "__main__":
     parser.add_argument('--sample-range', type=float, nargs=2, default=[0.0, 1.0],
                         metavar=('START', 'END'),
                         help='Sample range [START, END) to control the percentage of requests to send (e.g., 0.0 0.2). Default: [0.0, 1.0]')
+    parser.add_argument(
+        '--preselected-route',
+        action='store_true',
+        help='Replay every row in a preselected canonical route; incompatible with --sample-range.',
+    )
     parser.add_argument("--target-qps", type=float, default=1.0,
                         help="Target QPS for qps mode")
     # E2E SLO：端到端延迟目标（单位：秒，float）。例如：--e2e-slo 5.0
@@ -1140,11 +1793,21 @@ if __name__ == "__main__":
                         help="Enable detailed logging of each request with request-id, timestamps and token counts. Optionally specify a path to save the CSV file, otherwise default path will be used")
     
     args = parser.parse_args()
+    if args.extra_body_json is not None and not isinstance(args.extra_body_json, dict):
+        parser.error("--extra-body-json must be a JSON object")
+    if args.forward_kv_evict and not args.use_chat:
+        parser.error("--forward-kv-evict requires --use-chat")
+    if args.continuous_qps_window and args.replay_mode != "qps":
+        parser.error("--continuous-qps-window requires --replay-mode qps")
+    if args.continuous_qps_window and args.max_rounds is None:
+        parser.error("--continuous-qps-window requires --max-rounds")
     
     # 确保采样率在合理范围
     sample_start, sample_end = args.sample_range
     if not (0.0 <= sample_start < sample_end <= 1.0):
         raise ValueError(f"Invalid sample range [{sample_start}, {sample_end}). Must be 0.0 <= START < END <= 1.0")
+    if args.preselected_route and args.sample_range != [0.0, 1.0]:
+        parser.error('--preselected-route cannot be combined with --sample-range')
     logger.info(f"Using sample range: [{sample_start}, {sample_end})")
     
     try:
